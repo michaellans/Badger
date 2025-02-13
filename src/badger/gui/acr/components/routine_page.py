@@ -255,6 +255,7 @@ class BadgerRoutinePage(QWidget):
         """
 
         template_dir = os.path.join(self.BADGER_PLUGIN_ROOT, "templates")
+        #template_dir = "/home/physics/mlans/workspace/badger_test/Badger/src/badger/built_in_plugins/templates"
 
         if isinstance(self.sender(), QPushButton):
             # load template from button

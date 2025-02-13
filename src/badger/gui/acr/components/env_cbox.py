@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (
     QWidget,
     QPlainTextEdit,
     QLineEdit,
+    QComboBox,
 )
 from PyQt5.QtWidgets import (
     QCheckBox,
@@ -24,6 +25,7 @@ from badger.gui.default.utils import (
     NoHoverFocusComboBox,
 )
 from badger.utils import strtobool
+import os
 
 LABEL_WIDTH = 96
 ENV_PARAMS_BTN = 1  # use button or collapsible box for env parameters
@@ -107,6 +109,34 @@ class BadgerEnvBox(QWidget):
         hbox_name.addWidget(load_template_button, 0)
         vbox.addWidget(template_button)
         template_button.show()
+
+                # ~or~
+
+        # Load Template ComboBox
+        template = QWidget()
+        hbox_name = QHBoxLayout(template)
+        hbox_name.setContentsMargins(0, 0, 0, 0)
+        label = QLabel("Template: ")
+        label.setFixedWidth(LABEL_WIDTH)
+        self.template_dropdown = template_dropdown = NoHoverFocusComboBox()
+        template_dropdown.setItemDelegate(QStyledItemDelegate())
+        template_dropdown.installEventFilter(MouseWheelWidgetAdjustmentGuard(template_dropdown))
+        template_dropdown.setFixedWidth(LABEL_WIDTH+177)
+        template_dropdown.setCurrentIndex(-1)
+        BADGER_PLUGIN_ROOT = config_singleton.read_value("BADGER_PLUGIN_ROOT")
+        template_dir = os.path.join(BADGER_PLUGIN_ROOT, "templates")
+        try:
+            files = os.listdir(template_dir) 
+        except FileNotFoundError:
+            files = []
+        files = [f for f in files if f.endswith(".yaml")]   
+        template_dropdown.addItems(files)
+        spacer = QLabel("      ")
+        hbox_name.addWidget(label)
+        hbox_name.addWidget(template_dropdown, 0)
+        hbox_name.addWidget(spacer, 1)
+        vbox.addWidget(template)
+        template.hide()
 
         self.setObjectName("EnvBox")
 
