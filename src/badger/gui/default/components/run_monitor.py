@@ -813,7 +813,9 @@ class BadgerOptMonitor(QWidget):
         reply = QMessageBox.question(
             self,
             "Apply Solution",
-            f"Are you sure you want to apply the selected solution at {solution} to env?",
+            "Are you sure you want to apply the selected solution:\n"
+            + "\n".join(f"{variable_names[i]}: {solution[i]}," for i in range(len(variable_names)))
+            + "\nto " +  f"{self.routine.environment.name}?",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
@@ -829,7 +831,7 @@ class BadgerOptMonitor(QWidget):
 
         updated_vars = get_current_vars(self.routine)
         self.sig_status.emit(
-            f"Dial in solution: Env vars {curr_vars} -> {updated_vars}"
+            f"Dial in solution: {[f'{variable_names[i]}: {curr_vars[i]} -> {updated_vars[i]}' for i in range(len(variable_names))]}"
         )
         # QMessageBox.information(
         #     self, 'Set Environment', f'Env vars have been set to {solution}')
