@@ -35,6 +35,7 @@ from badger.gui.default.windows.review_dialog import BadgerReviewDialog
 from badger.gui.default.windows.add_random_dialog import BadgerAddRandomDialog
 from badger.gui.default.windows.message_dialog import BadgerScrollableMessageBox
 from badger.gui.default.utils import filter_generator_config
+from badger.gui.acr.components.archive_search import ArchiveSearchWidget
 from badger.archive import update_run
 from badger.environment import instantiate_env
 from badger.errors import BadgerRoutineError
@@ -238,6 +239,7 @@ class BadgerRoutinePage(QWidget):
         self.generator_box.btn_edit_script.clicked.connect(self.edit_script)
         self.env_box.cb.currentIndexChanged.connect(self.select_env)
         self.env_box.btn_env_play.clicked.connect(self.open_playground)
+        self.env_box.btn_pv.clicked.connect(self.open_archive_search)
         self.env_box.btn_docs.clicked.connect(self.open_environment_docs)
         self.env_box.btn_add_var.clicked.connect(self.add_var)
         self.env_box.btn_lim_vrange.clicked.connect(self.limit_variable_ranges)
@@ -642,7 +644,7 @@ class BadgerRoutinePage(QWidget):
             # Patch for BOs that make the low noise prior False by default
             default_config["gp_constructor"]["use_low_noise_prior"] = False
             # Patch for BOs that turn on TuRBO by default
-            default_config["turbo_controller"] = "optimize"
+            # default_config["turbo_controller"] = "optimize"
 
         # Patch to only show part of the config
         filtered_config = filter_generator_config(name, default_config)
@@ -724,6 +726,9 @@ class BadgerRoutinePage(QWidget):
         # Reset the initial table actions and ratio var ranges
         self.init_table_actions = []
         self.ratio_var_ranges = {}
+
+        if hasattr(self, "archive_search"):
+            self.archive_search.close()
 
         if i == -1:
             self.env_box.edit.setPlainText("")
@@ -931,6 +936,19 @@ class BadgerRoutinePage(QWidget):
 
     def open_environment_docs(self):
         self.window_env_docs.show()
+
+    def open_archive_search(self):
+        if not hasattr(self, "archive_search") or not self.archive_search.isVisible():
+            try:
+                env = self.create_env()
+            except AttributeError:
+                raise BadgerRoutineError("No environment selected!")
+
+            self.archive_search = ArchiveSearchWidget(environment=env)
+            self.archive_search.show()
+        else:
+            self.archive_search.raise_()
+            self.archive_search.activateWindow()
 
     def add_var(self):
         # TODO: Use a cached env
