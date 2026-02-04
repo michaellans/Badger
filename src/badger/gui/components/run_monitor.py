@@ -14,6 +14,8 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -24,6 +26,7 @@ from PyQt5.QtWidgets import (
 from xopt import VOCS
 
 from badger.archive import archive_run, BADGER_ARCHIVE_ROOT
+from badger.gui.components.pydantic_editor import BadgerPydanticEditor
 
 # from ...utils import AURORA_PALETTE, FROST_PALETTE
 from badger.logbook import BADGER_LOGBOOK_ROOT, send_to_logbook
@@ -87,6 +90,8 @@ class BadgerOptMonitor(QWidget):
         self.eval_count = 0
         # Termination condition for the run
         self.termination_condition = None
+
+        self.checkpoint_data: dict[str, float] | None = None
 
         self.extensions_palette = ExtensionsPalette(self)
         self.active_extensions: list[AnalysisExtension] = []
@@ -807,6 +812,96 @@ class BadgerOptMonitor(QWidget):
         )
         # QMessageBox.information(self, 'Reset Environment',
         #                         f'Env vars {curr_vars} -> {self.init_vars}')
+
+    def get_checkpoint(self):
+        if not self.routine or not self.routine.environment or not self.routine.vocs:
+            return None
+
+        return self.routine.environment.get_variables(
+            [*self.routine.environment.variables, *self.routine.vocs.variables.keys()]
+        )
+
+    def save_checkpoint(self):
+        checkpoint = self.get_checkpoint()
+        if checkpoint is None:
+            QMessageBox.critical(
+                self, "Save Checkpoint", "No environment to read checkpoint data from."
+            )
+            return
+
+        self.checkpoint_data = checkpoint
+        logger.debug(
+            f"Checkpoint saved with the following data: {self.checkpoint_data}"
+        )
+
+    def edit_checkpoint(self):
+        if self.checkpoint_data is None:
+            QMessageBox.information(
+                self, "Edit Checkpoint", "No checkpoint data has been saved yet."
+            )
+            return
+
+        popup = QDialog(self)
+        popup.setWindowTitle("Edit Checkpoint")
+        popup.setMinimumWidth(400)
+
+        popupLayout = QVBoxLayout(popup)
+
+        def editor_update_callback(this_editor: BadgerPydanticEditor) -> None:
+            checkpoint = self.get_checkpoint()
+            for i in range(this_editor.topLevelItemCount()):
+                if (
+                    checkpoint is not None
+                    and this_editor.topLevelItem(i).text(0) in checkpoint
+                ):
+                    this_editor.topLevelItem(i).setText(
+                        1, str(checkpoint[this_editor.topLevelItem(i).text(0)])
+                    )
+                else:
+                    this_editor.topLevelItem(i).setText(1, "N/A")
+
+        editor = BadgerPydanticEditor(self, 2, editor_update_callback)
+        editor.set_params_from_dict(self.checkpoint_data)
+        editor.setHeaderLabels(["Parameter", "Current Value", "New Value"])
+        editor.setColumnWidth(0, 100)
+        editor.setColumnWidth(1, 125)
+        popupLayout.addWidget(editor)
+
+        def popup_editor_accepted() -> None:
+            self.checkpoint_data = editor.get_parameters_dict()
+            logger.debug(
+                f"Checkpoint edited with the following data: {self.checkpoint_data}"
+            )
+            popup.close()
+
+        popup.accepted.connect(popup_editor_accepted)
+
+        popupButtons = QDialogButtonBox(popup)
+        popupButtons.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        popupButtons.accepted.connect(popup.accept)
+        popupButtons.rejected.connect(popup.reject)
+        popupLayout.addWidget(popupButtons)
+
+        popup.exec()
+
+    def load_checkpoint(self):
+        if self.checkpoint_data is None:
+            QMessageBox.information(
+                self, "Load Checkpoint", "No checkpoint data has been saved yet."
+            )
+            return
+
+        answer = QMessageBox.question(
+            self,
+            "Load Checkpoint",
+            "Are you sure you want to load the stored variables in the checkpoint?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if answer == QMessageBox.Yes:
+            self.routine.environment.set_variables(self.checkpoint_data)
+            logger.debug(
+                f"Checkpoint loaded with the following data: {self.checkpoint_data}"
+            )
 
     def jump_to_optimal(self):
         try:
