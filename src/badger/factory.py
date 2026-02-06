@@ -13,6 +13,7 @@ import sys
 import os
 import importlib
 import yaml
+from pathlib import Path
 from xopt.generators import generators, get_generator_defaults
 
 import logging
@@ -207,7 +208,10 @@ def load_docs(root, pname, ptype):
         docstring = module.Environment.__doc__
 
         # Format as Markdown code block
-        help_md = f"```text\n{readme}\n# Environment Documentation\n{docstring}\n```"
+        help_md = (
+            f"\n{readme}\n## Docstrings\nContinue reading to see the full docstring for "
+            f"the selected Badger environment class\n\n```text\n# Environment Documentation\n{docstring}\n```"
+        )
         return help_md
     except:
         raise BadgerInvalidDocsError(
@@ -239,8 +243,38 @@ def scan_extensions(root):
     return extensions
 
 
-def get_generator_docs(name: str):
-    return generators[name].__doc__
+def get_generator_docs(pname: str):
+    # .../Badger/src/badger/factory.py
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+    # .../Badger/documentation/docs/guides/generators/
+    GENERATOR_DOCS_DIR = (
+        PROJECT_ROOT / "documentation" / "docs" / "guides" / "generators"
+    )
+
+    proot = GENERATOR_DOCS_DIR
+    readme = None
+    docstring = None
+
+    try:
+        try:
+            with open(os.path.join(proot, f"{pname}.md"), "r") as f:
+                readme = f.read()
+        except:
+            readme = f"# {pname}\nNo documentation found.\n"
+
+        docstring = generators[pname].__doc__
+
+        # Format as Markdown code block
+        help_md = (
+            f"\n{readme}\n## Docstrings\nContinue reading to see the full docstring for "
+            f"the selected Badger generator class\n\n```text\n# Generator Documentation\n{docstring}\n```"
+        )
+        return help_md
+    except:
+        raise BadgerInvalidDocsError(
+            f"Error loading docs for generator {pname}: docs not found"
+        )
 
 
 def get_env_docs(name: str):
