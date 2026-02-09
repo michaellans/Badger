@@ -184,14 +184,82 @@ def load_plugin(
     return plugin
 
 
-def load_docs(root, pname, ptype):
-    assert ptype in [
-        "generator",
-        "interface",
-        "environment",
-    ], f"Invalid plugin type {ptype}"
+def load_badger_docs(name: str, ptype: str = None):
+    """
+    Load general Badger documentation from Badger/documentation/docs/guides.
 
-    proot = os.path.join(root, f"{ptype}s")
+    Parameters
+    __________
+    name : str
+        Name of the .md file to open
+    ptype : str (None)
+        Name of subdirectory if file is not in main guides dir (e.g. 'generator')
+        Will look for .md files in guides/generators/
+
+    Returns
+    _______
+        str:
+        Formatted markdown string containing both the README content
+        and the plugin class docstring in a code block.
+    """
+    # .../Badger/src/badger/factory.py
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+    # .../Badger/documentation/docs/guides/
+    BADGER_GUIDES_DIR = PROJECT_ROOT / "documentation" / "docs" / "guides"
+
+    docs_dir = Path(BADGER_GUIDES_DIR)
+    if ptype is not None:
+        subdir = docs_dir / f"{ptype}s"
+        if subdir.is_dir():
+            docs_dir = subdir
+
+    readme = None
+    docstring = None
+
+    try:
+        try:
+            with open(docs_dir / f"{name}.md", "r") as f:
+                readme = f.read()
+        except:
+            readme = f"# {name}\nNo documentation found.\n"
+
+        if ptype == "generator":
+            docstring = generators[name].__doc__
+
+        return _format_docs_str(readme, docstring, ptype)
+    except:
+        raise BadgerInvalidDocsError(
+            f"Error loading docs for generator {name}: docs not found"
+        )
+
+
+def load_plugin_docs(pname: str, ptype: str) -> str:
+    """
+    Load and format documentation for a Badger plugin. Loads the plugin's
+    README.md file and extracts the class docstring,
+    then formats them together as a single markdown document.
+
+    Parameters
+    __________
+    pname : str
+        Name of the plugin to load documentation for.
+        Must match the plugin's directory and module name.
+    ptype : str
+        Type of plugin (e.g. 'environment')
+
+    Returns
+    _______
+        str:
+        Formatted markdown string containing both the README content
+        and the plugin class docstring in a code block.
+    """
+    # assert plugin type is a directory in BADGER_PLUGIN_ROOT
+    p = Path(BADGER_PLUGIN_ROOT)
+    ptype_dir = p / f"{ptype}s"
+    assert ptype_dir.is_dir(), f"Invalid plugin type '{ptype}'. Directory not found"
+
+    plugin_dir = ptype_dir / pname
 
     # Load the readme and the docs
     readme = None
@@ -199,24 +267,36 @@ def load_docs(root, pname, ptype):
 
     try:
         try:
-            with open(os.path.join(proot, pname, "README.md"), "r") as f:
+            with open(plugin_dir / "README.md", "r") as f:
                 readme = f.read()
         except:
             readme = f"# {pname}\nNo readme found.\n"
 
         module = importlib.import_module(f"{ptype}s.{pname}")
-        docstring = module.Environment.__doc__
 
-        # Format as Markdown code block
-        help_md = (
-            f"\n{readme}\n## Docstrings\nContinue reading to see the full docstring for "
-            f"the selected Badger environment class\n\n```text\n# Environment Documentation\n{docstring}\n```"
-        )
-        return help_md
+        if ptype == "environment":
+            docstring = module.Environment.__doc__
+
+        return _format_docs_str(readme, docstring, ptype)
     except:
         raise BadgerInvalidDocsError(
             f"Error loading docs for {ptype} {pname}: docs not found"
         )
+
+
+def _format_docs_str(readme: str, docstring: str = None, ptype: str = None) -> str:
+    if ptype is None and docstring is None:
+        return readme
+
+    if ptype is not None:
+        ptype = ptype.title()
+
+    # Format as Markdown code block
+    help_md = (
+        f"\n{readme}\n## Docstrings\nContinue reading to see the full docstring for "
+        f"the selected Badger {ptype} class\n\n```text\n# {ptype} Documentation\n{docstring}\n```"
+    )
+    return help_md
 
 
 def get_plug(root: str, name: str, ptype: str):
@@ -243,42 +323,12 @@ def scan_extensions(root):
     return extensions
 
 
-def get_generator_docs(pname: str):
-    # .../Badger/src/badger/factory.py
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-
-    # .../Badger/documentation/docs/guides/generators/
-    GENERATOR_DOCS_DIR = (
-        PROJECT_ROOT / "documentation" / "docs" / "guides" / "generators"
-    )
-
-    proot = GENERATOR_DOCS_DIR
-    readme = None
-    docstring = None
-
-    try:
-        try:
-            with open(os.path.join(proot, f"{pname}.md"), "r") as f:
-                readme = f.read()
-        except:
-            readme = f"# {pname}\nNo documentation found.\n"
-
-        docstring = generators[pname].__doc__
-
-        # Format as Markdown code block
-        help_md = (
-            f"\n{readme}\n## Docstrings\nContinue reading to see the full docstring for "
-            f"the selected Badger generator class\n\n```text\n# Generator Documentation\n{docstring}\n```"
-        )
-        return help_md
-    except:
-        raise BadgerInvalidDocsError(
-            f"Error loading docs for generator {pname}: docs not found"
-        )
+def get_generator_docs(name: str):
+    return load_badger_docs(name, "generator")
 
 
 def get_env_docs(name: str):
-    return load_docs(BADGER_PLUGIN_ROOT, name, "environment")
+    return load_plugin_docs(name, "environment")
 
 
 def get_intf(name: str):
