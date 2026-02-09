@@ -184,35 +184,27 @@ def load_plugin(
     return plugin
 
 
-def load_badger_docs(name: str, ptype: str = None):
+def get_generator_docs(name: str):
     """
-    Load general Badger documentation from Badger/documentation/docs/guides.
+    Load and format Badger generator documentation from markdown
+    files and class docstrings.
 
     Parameters
     __________
     name : str
-        Name of the .md file to open
-    ptype : str (None)
-        Name of subdirectory if file is not in main guides dir (e.g. 'generator')
-        Will look for .md files in guides/generators/
+        Generator name, must also match the markdown filename
 
     Returns
     _______
         str:
-        Formatted markdown string containing both the README content
-        and the plugin class docstring in a code block.
+        Formatted markdown string containing both the Badger guide content
+        and the class docstring in a code block.
     """
     # .../Badger/src/badger/factory.py
     PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-
-    # .../Badger/documentation/docs/guides/
     BADGER_GUIDES_DIR = PROJECT_ROOT / "documentation" / "docs" / "guides"
 
-    docs_dir = Path(BADGER_GUIDES_DIR)
-    if ptype is not None:
-        subdir = docs_dir / f"{ptype}s"
-        if subdir.is_dir():
-            docs_dir = subdir
+    docs_dir = BADGER_GUIDES_DIR / "generators"
 
     readme = None
     docstring = None
@@ -221,13 +213,12 @@ def load_badger_docs(name: str, ptype: str = None):
         try:
             with open(docs_dir / f"{name}.md", "r") as f:
                 readme = f.read()
-        except:
+        except FileNotFoundError:
             readme = f"# {name}\nNo documentation found.\n"
 
-        if ptype == "generator":
-            docstring = generators[name].__doc__
+        docstring = generators[name].__doc__
 
-        return _format_docs_str(readme, docstring, ptype)
+        return _format_docs_str(readme, docstring, "generator")
     except:
         raise BadgerInvalidDocsError(
             f"Error loading docs for generator {name}: docs not found"
@@ -284,7 +275,7 @@ def load_plugin_docs(pname: str, ptype: str) -> str:
         )
 
 
-def _format_docs_str(readme: str, docstring: str = None, ptype: str = None) -> str:
+def _format_docs_str(readme: str, docstring: str, ptype: str) -> str:
     if ptype is None and docstring is None:
         return readme
 
@@ -321,10 +312,6 @@ def scan_extensions(root):
     extensions = {}
 
     return extensions
-
-
-def get_generator_docs(name: str):
-    return load_badger_docs(name, "generator")
 
 
 def get_env_docs(name: str):
