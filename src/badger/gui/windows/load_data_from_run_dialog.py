@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QMessageBox,
 )
+from PyQt5.QtCore import Qt
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 from typing import List, Callable
@@ -65,6 +66,7 @@ class BadgerLoadDataFromRunDialog(QDialog):
             selected_routine (Optional[Routine]): The currently selected routine.
         """
         super().__init__(parent)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
 
         self.selected_routine = None
         self.env_vocs = env_vocs
