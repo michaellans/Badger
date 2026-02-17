@@ -12,3 +12,7 @@ Robust Conjugate Direction Search makes decisions via successive local approxima
 - Local optimizer, sensitive to initial starting conditions
 - Scales poorly to higher dimensional problems
 - Cannot handle observational constraints
+
+## Parameters
+- `noise` : Estimated noise level.
+- `step` : Step size for the optimization.
