@@ -6,20 +6,20 @@ sidebar_position: 4
 
 # Bayesian Algorithms
 
-Bayesian Optimization (BO) is an iterative, model-based optimization algorithm that is particularly well suited for sample-efficient optimization of noisy, expensive-to-evaluate objectives. Bayesian Optimization consists of three steps: 
+Bayesian Optimization (BO) is an iterative, model-based optimization algorithm that is particularly well suited for sample-efficient optimization of noisy, expensive-to-evaluate objectives. Bayesian Optimization consists of three steps:
 
 1.	*Construct a statistical model of the objective and any constraint functions, based on measured data.* This is generally done using Gaussian Process models, which use Bayes’ rule to predict probability distributions of function values at various locations based on measured data. Values close to observed points will likely be strongly correlated, with uncertainty increasing as the model gets farther from measured data, like a vibrating string with a collection of fixed nodes.
 
 2.	*Define an acquisition function based on the model, which describes the potential value future measurements.* Acquisition functions aim to perform global optimization by balancing *exploration* (Value areas with high uncertainty) and *exploitation* (Value areas predicted to be optimal). The two most commonly used acquisition functions are expected improvement and upper confidence bound. **Expected Improvement** determines the value of future points by calculating an expectation value of improvement over the best previously observed point. This emphasizes choosing points that are either predicted to be optimal, have a large variance, or a combination of both. **Upper Confidence Bound** explicitly specifies a tradeoff between exploration and exploitation by assigning value to new points based on a linear combination of predicted mean and variance with a weighting factor of `β` – higher values of `β` will bias towards exploration, while lower values will bias towards exploitation.
 
-3.	*Find the point which maximizes the acquisition function, i.e., is predicted to provide the most value towards the optimization.* This is in itself an optimization problem and is generally performed using a gradient descent algorithm such as LBFGS, with parallel optimization from multiple random starting points improving the chances of finding a global optimum. 
+3.	*Find the point which maximizes the acquisition function, i.e., is predicted to provide the most value towards the optimization.* This is in itself an optimization problem and is generally performed using a gradient descent algorithm such as LBFGS, with parallel optimization from multiple random starting points improving the chances of finding a global optimum.
 
 Paraphrased from: *R. Roussel, A.L. Edelen, T. Boltz, D. Kennedy, Z. Zhang, F. Ji, X. Huang, D. Ratner, A.S. Garcia, C. Xu, et al., Bayesian optimization algorithms for accelerator physics, Phys. Rev. Accel. Beams 27 (8) (2024) 084801.*
 
 
 ## Expected Improvement (Bayesian Optimization)
 
-[Expected Improvement](./generators/expected_improvement#generator) is an acquisition function for Bayesian Optimization which determines the value of future points by calculating the expectation value of improvement over the best previously observed point. This emphasizes choosing points that are either predicted to be optimal, have a large variance, or a combination of both, thereby balancing exploration and exploitation. 
+[Expected Improvement](./generators/expected_improvement#generator) is an acquisition function for Bayesian Optimization which determines the value of future points by calculating the expectation value of improvement over the best previously observed point. This emphasizes choosing points that are either predicted to be optimal, have a large variance, or a combination of both, thereby balancing exploration and exploitation.
 
 **Advantages:**
 - Able to handle constraints during optimization
@@ -35,7 +35,7 @@ Paraphrased from: *R. Roussel, A.L. Edelen, T. Boltz, D. Kennedy, Z. Zhang, F. J
 
 ## Upper Confidence Bound
 
-[Upper Confidence Bound](./generators/upper_confidence_bound#generator) is an acquisition function for Bayesian optimization which explicitly specifies a tradeoff between exploration and exploitation by assigning value to new points based on combination of predicted mean and variance with a weighting factor of β. Higher values of β will bias towards exploration, while lower values will bias towards exploitation. 
+[Upper Confidence Bound](./generators/upper_confidence_bound#generator) is an acquisition function for Bayesian optimization which explicitly specifies a tradeoff between exploration and exploitation by assigning value to new points based on combination of predicted mean and variance with a weighting factor of β. Higher values of β will bias towards exploration, while lower values will bias towards exploitation.
 
 **Advantages:**
 - Able to handle constraints during optimization

@@ -2,7 +2,7 @@
 sidebar_position: 5
 ---
 
-# Extremum Seeking 
+# Extremum Seeking
 
 Perform small oscillations to measurement to slowly move towards minimum. This algorithm uses a sinusoidal sampling strategy for each parameter to slowly drift towards optimal operating conditions and track changes in the optimal operating conditions over time. It’s useful for time dependent optimization, where short term drifts in accelerator conditions can lead to a time dependent objective function.
 
@@ -20,4 +20,3 @@ Perform small oscillations to measurement to slowly move towards minimum. This a
 - `k` : Feedback gain
 - `oscillation_size` : Oscillation size
 - `decay_rate` : Decay rate
-

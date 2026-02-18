@@ -19,4 +19,3 @@ Iterative downhill simplex algorithm which seeks to find local optima by samplin
 
 ## Parameters
 - `adaptive` : If `True`, dynamically adjust internal parameters based on dimensionality.
-

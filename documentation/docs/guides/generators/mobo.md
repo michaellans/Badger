@@ -10,4 +10,3 @@ Multi-Objective Bayesian Optimization (MOBO) aims to determine the best trade-of
 - `numerical_optimizer` : Numerical method for finding the maximum value of the aquisition function at each optimization step. Default is LBFGS.
 - `max_travel_distances` : Optional list of maximum step sizes, as floats, for each variable. If provided must be the same length as number of variables. Each distance will be applied as an additional constraint on the bounds for each optimization step. For example, if a max_travel_distance of [1.0] is given for a magnet, each step of the optimization will be constrained to a distance of +- 1.0kG from the current value.
 - `reference_point` : Dict specifying reference point for multi-objective optimization
-
