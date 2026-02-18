@@ -13,6 +13,7 @@ import sys
 import os
 import importlib
 import yaml
+import re
 from pathlib import Path
 from xopt.generators import generators, get_generator_defaults
 
@@ -332,10 +333,40 @@ def _format_md_docs(text: str):
             result_lines.append(line)
 
     # Replace double newlines with <br />
-    # For some reason QTextBrowser doesn't render them correctly otherwise
+    # to render correctly in QTextBrowser
     result = "\n".join(result_lines)
     result = result.replace("\n\n", "<br />\n\n")
+    result = _md_images_to_html(result)
     return result
+
+
+_MD_IMG = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+
+
+def _md_images_to_html(
+    text: str,
+    base_prefix: str = "./documentation/static",
+    close_tag: bool = True,
+    width: int = 575,
+) -> str:
+    """
+    Helper function to replace markdown image syntax with HTML img tags.
+    This is renders markdown images correctly within the QTextBrowser.
+    """
+
+    def repl(m: re.Match) -> str:
+        url = m.group(1).strip().strip("'\"")
+
+        if url.startswith("/"):
+            url = base_prefix.rstrip("/") + url
+
+        return (
+            f'<img src="{url}" width={width}></img>'
+            if close_tag
+            else f'<img src="{url}">'
+        )
+
+    return _MD_IMG.sub(repl, text)
 
 
 def get_plug(root: str, name: str, ptype: str):
