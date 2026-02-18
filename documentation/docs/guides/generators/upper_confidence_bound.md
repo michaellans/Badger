@@ -1,6 +1,10 @@
-## Upper Confidence Bound
+---
+sidebar_position: 2
+---
 
-[Bayesian Optimization](/../algorithms-overview#bayesian-algorithms) algorithms are machine learning-based algorithms that are particularly well suited to efficiently optimizing noisy objectives with few iterations. Upper Confidence Bound is an acquisition function for Bayesian optimization which explicitly specifies a tradeoff between exploration and exploitation by assigning value to new points based on combination of predicted mean and variance with a weighting factor of β. Higher values of β will bias towards exploration, while lower values will bias towards exploitation. 
+# Upper Confidence Bound
+
+[Bayesian Optimization](./../algorithms-overview#bayesian-algorithms) algorithms are machine learning-based algorithms that are particularly well suited to efficiently optimizing noisy objectives with few iterations. Upper Confidence Bound is an acquisition function for Bayesian optimization which explicitly specifies a tradeoff between exploration and exploitation by assigning value to new points based on combination of predicted mean and variance with a weighting factor of β. Higher values of β will bias towards exploration, while lower values will bias towards exploitation. 
 
 **Advantages:**
 - Able to handle constraints during optimization

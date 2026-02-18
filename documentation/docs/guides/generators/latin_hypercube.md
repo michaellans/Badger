@@ -1,4 +1,8 @@
-## Latin Hypercube
+---
+sidebar_position: 8
+---
+
+# Latin Hypercube
 
 Perform latin hypercube sampling of the evaluation function. Similar to random sampling but divides the input space into equal-probability sections along each variable to achieve a more uniform sampling distribution. 
 

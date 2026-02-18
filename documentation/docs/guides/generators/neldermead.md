@@ -1,4 +1,8 @@
-## Nelder-Mead
+---
+sidebar_position: 4
+---
+
+# Nelder-Mead
 
 Iterative downhill simplex algorithm which seeks to find local optima by sampling initial points and then using a heuristic to choose the next point during each iteration. Nelder-Mead has been widely used inside accelerator physics.
 

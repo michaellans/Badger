@@ -1,4 +1,8 @@
-## RCDS
+---
+sidebar_position: 6
+---
+
+# RCDS
 
 Robust Conjugate Direction Search makes decisions via successive local approximations of the objective function to converge to an optimum. RCDS may be more efficient than Nelder-Mead but requires multiple iterations initially to establish a local model of the objective function before starting to optimize.
 

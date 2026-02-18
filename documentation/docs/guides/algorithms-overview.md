@@ -19,7 +19,7 @@ Paraphrased from: *R. Roussel, A.L. Edelen, T. Boltz, D. Kennedy, Z. Zhang, F. J
 
 ## Expected Improvement (Bayesian Optimization)
 
-[Expected Improvement](/generators/expected_improvement#generator) is an acquisition function for Bayesian Optimization which determines the value of future points by calculating the expectation value of improvement over the best previously observed point. This emphasizes choosing points that are either predicted to be optimal, have a large variance, or a combination of both, thereby balancing exploration and exploitation. 
+[Expected Improvement](./generators/expected_improvement#generator) is an acquisition function for Bayesian Optimization which determines the value of future points by calculating the expectation value of improvement over the best previously observed point. This emphasizes choosing points that are either predicted to be optimal, have a large variance, or a combination of both, thereby balancing exploration and exploitation. 
 
 **Advantages:**
 - Able to handle constraints during optimization
@@ -35,7 +35,7 @@ Paraphrased from: *R. Roussel, A.L. Edelen, T. Boltz, D. Kennedy, Z. Zhang, F. J
 
 ## Upper Confidence Bound
 
-[Upper Confidence Bound](/generators/upper_confidence_bound#generator) is an acquisition function for Bayesian optimization which explicitly specifies a tradeoff between exploration and exploitation by assigning value to new points based on combination of predicted mean and variance with a weighting factor of β. Higher values of β will bias towards exploration, while lower values will bias towards exploitation. 
+[Upper Confidence Bound](./generators/upper_confidence_bound#generator) is an acquisition function for Bayesian optimization which explicitly specifies a tradeoff between exploration and exploitation by assigning value to new points based on combination of predicted mean and variance with a weighting factor of β. Higher values of β will bias towards exploration, while lower values will bias towards exploitation. 
 
 **Advantages:**
 - Able to handle constraints during optimization
@@ -51,7 +51,7 @@ Paraphrased from: *R. Roussel, A.L. Edelen, T. Boltz, D. Kennedy, Z. Zhang, F. J
 
 ## Nelder-Mead
 
-[Nelder-Mead](/generators/neldermead#generator) is an iterative downhill simplex algorithm which seeks to find local optima by sampling initial points and then using a heuristic to choose the next point during each iteration. Nelder-Mead has been widely used inside accelerator physics.
+[Nelder-Mead](./generators/neldermead#generator) is an iterative downhill simplex algorithm which seeks to find local optima by sampling initial points and then using a heuristic to choose the next point during each iteration. Nelder-Mead has been widely used inside accelerator physics.
 
 **Advantages:**
 - Low computational cost
@@ -66,7 +66,7 @@ Paraphrased from: *R. Roussel, A.L. Edelen, T. Boltz, D. Kennedy, Z. Zhang, F. J
 
 ## Extremum Seeking
 
-[Extremum Seeking](/generators/extremum_seeking#generator) performs small oscillations to measurement to slowly move towards minimum. This algorithm uses a sinusoidal sampling strategy for each parameter to slowly drift towards optimal operating conditions and track changes in the optimal operating conditions over time. It’s useful for time dependent optimization, where short term drifts in accelerator conditions can lead to a time dependent objective function.
+[Extremum Seeking](./generators/extremum_seeking#generator) performs small oscillations to measurement to slowly move towards minimum. This algorithm uses a sinusoidal sampling strategy for each parameter to slowly drift towards optimal operating conditions and track changes in the optimal operating conditions over time. It’s useful for time dependent optimization, where short term drifts in accelerator conditions can lead to a time dependent objective function.
 
 **Advantages:**
 - Low computational cost
@@ -81,7 +81,7 @@ Paraphrased from: *R. Roussel, A.L. Edelen, T. Boltz, D. Kennedy, Z. Zhang, F. J
 
 ## RCDS
 
-[Robust Conjugate Direction Search](/generators/rcds#generator) makes decisions via successive local approximations of the objective function to converge to an optimum. RCDS may be more efficient than Nelder-Mead but requires multiple iterations initially to establish a local model of the objective function before starting to optimize.
+[Robust Conjugate Direction Search](./generators/rcds#generator) makes decisions via successive local approximations of the objective function to converge to an optimum. RCDS may be more efficient than Nelder-Mead but requires multiple iterations initially to establish a local model of the objective function before starting to optimize.
 
 **Advantages:**
 - Low computational cost
@@ -98,8 +98,8 @@ Paraphrased from: *R. Roussel, A.L. Edelen, T. Boltz, D. Kennedy, Z. Zhang, F. J
 
 ## Random
 
-Generates [random](/generators/random#generator) points to sample from within the input space
+Generates random points to sample from within the input space
 
 ## Latin Hypercube
 
-Somewhat similar to random sampling, [Latin Hypercube](/generators/latin_hypercube#generator) divides the input space into equal-probability sections along each variable to achieve a more uniform sampling distribution.
+Similar to random sampling but divides the input space into equal-probability sections along each variable to achieve a more uniform sampling distribution.

@@ -1,6 +1,10 @@
+---
+sidebar_position: 1
+---
+
 # Expected Improvement
 
-[Bayesian Optimization](/../algorithms-overview#bayesian-algorithms) algorithms are machine learning-based algorithms that are particularly well suited to efficiently optimizing noisy objectives with few iterations. Expected Improvement (`EI`) is an acquisition function for Bayesian Optimization which determines the value of future points by calculating the expectation value of improvement over the best previously observed point. This emphasizes choosing points that are either predicted to be optimal, have a large variance, or a combination of both, thereby balancing exploration and exploitation. 
+[Bayesian Optimization](./../algorithms-overview#bayesian-algorithms) algorithms are machine learning-based algorithms that are particularly well suited to efficiently optimizing noisy objectives with few iterations. Expected Improvement (`EI`) is an acquisition function for Bayesian Optimization which determines the value of future points by calculating the expectation value of improvement over the best previously observed point. This emphasizes choosing points that are either predicted to be optimal, have a large variance, or a combination of both, thereby balancing exploration and exploitation. 
 
 **Advantages:**
 - Able to handle constraints during optimization
