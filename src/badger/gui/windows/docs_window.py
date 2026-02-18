@@ -60,6 +60,13 @@ class BadgerDocsWindow(QMainWindow):
         """
         # format url to string
         href = url.toString()
+
+        # Indicate links not yet supported in GUI docs viewer
+        if href.startswith("https://") or href.startswith("mailto:"):
+            self.docs = "external links not yet implemented in GUI docs viewer"
+            self.load_docs()
+            return
+
         url_end = href.split("/")[-1].split("#")
 
         self.docs = url_end[0]
