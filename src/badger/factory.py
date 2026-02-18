@@ -351,7 +351,7 @@ def _md_images_to_html(
 ) -> str:
     """
     Helper function to replace markdown image syntax with HTML img tags.
-    This is renders markdown images correctly within the QTextBrowser.
+    This renders markdown images correctly within the QTextBrowser.
     """
 
     def repl(m: re.Match) -> str:
