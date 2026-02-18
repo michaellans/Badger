@@ -985,7 +985,7 @@ class BadgerRoutinePage(QWidget):
         self.generator_box.edit.set_params_from_generator(name, filtered_config, vocs)
 
         # Update the docs
-        self.window_docs.update_docs(name)
+        self.window_docs.update_docs(name, "generator")
 
     def _fill_init_table(self):  # make sure self.init_table_actions is set
         for action in self.init_table_actions:
@@ -1344,6 +1344,8 @@ class BadgerRoutinePage(QWidget):
         pass
 
     def open_generator_docs(self):
+        name = self.generator_box.cb.currentText()
+        self.window_docs.update_docs(name, "generator")
         self.window_docs.show()
 
     def open_environment_docs(self):

@@ -184,27 +184,38 @@ def load_plugin(
     return plugin
 
 
-def get_generator_docs(name: str):
+def load_badger_docs(name: str, ptype: str = None):
     """
-    Load and format Badger generator documentation from markdown
-    files and class docstrings.
+    Load general Badger documentation from Badger/documentation/docs/guides.
 
     Parameters
     __________
     name : str
-        Generator name, must also match the markdown filename
+        Name of the .md file to open
+    subdir : str (None)
+        Name of subdirectory if file is not in main guides directory
 
     Returns
     _______
         str:
-        Formatted markdown string containing both the Badger guide content
-        and the class docstring in a code block.
+        Formatted markdown string containing both the README content
+        and the plugin class docstring if applicable in a code block.
     """
     # .../Badger/src/badger/factory.py
     PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
     BADGER_GUIDES_DIR = PROJECT_ROOT / "documentation" / "docs" / "guides"
 
-    docs_dir = BADGER_GUIDES_DIR / "generators"
+    docs_dir = Path(BADGER_GUIDES_DIR)
+    # Get subdirectory
+    if ptype is not None:
+        subdir = docs_dir / f"{ptype}s"
+        if subdir.is_dir():
+            docs_dir = subdir
+
+    # Create header with links to other guides
+    files = [x.stem for x in BADGER_GUIDES_DIR.iterdir() if str(x).endswith(".md")]
+    headers = [f"<a href=/{filename}>{filename.title()}</a>" for filename in files]
+    header = " | ".join(sorted(headers))
 
     readme = None
     docstring = None
@@ -213,13 +224,16 @@ def get_generator_docs(name: str):
         try:
             with open(docs_dir / f"{name}.md", "r") as f:
                 readme = f.read()
-        except FileNotFoundError:
+        except:
             readme = f"# {name}\nNo documentation found.\n"
 
-        docstring = generators[name].__doc__
+        if ptype == "generator":
+            docstring = generators[name].__doc__
 
-        return _format_docs_str(readme, docstring, "generator")
-    except:
+        help_md = _format_docs_str(readme, docstring, ptype)
+
+        return f"{header}<br /> {help_md}"
+    except FileNotFoundError:
         raise BadgerInvalidDocsError(
             f"Error loading docs for generator {name}: docs not found"
         )
@@ -260,7 +274,7 @@ def load_plugin_docs(pname: str, ptype: str) -> str:
         try:
             with open(plugin_dir / "README.md", "r") as f:
                 readme = f.read()
-        except:
+        except FileNotFoundError:
             readme = f"# {pname}\nNo readme found.\n"
 
         module = importlib.import_module(f"{ptype}s.{pname}")
@@ -276,18 +290,52 @@ def load_plugin_docs(pname: str, ptype: str) -> str:
 
 
 def _format_docs_str(readme: str, docstring: str, ptype: str) -> str:
-    if ptype is None and docstring is None:
-        return readme
+    """
+    Helper function to format the readme and docstring into a single markdown string.
+    """
+
+    readme = _format_md_docs(readme)
+
+    if ptype is None or ptype == "":
+        if docstring is None:
+            return readme
 
     if ptype is not None:
+        # Capitalize first leter
         ptype = ptype.title()
 
     # Format as Markdown code block
     help_md = (
-        f"\n{readme}\n## Docstrings\nContinue reading to see the full docstring for "
-        f"the selected Badger {ptype} class\n\n```text\n# {ptype} Documentation\n{docstring}\n```"
+        f"\n{readme}<br />\n\n## Docstrings\nContinue reading to see the full docstring for "
+        f"the selected Badger {ptype} class<br />\n\n```text\n# {ptype} Documentation\n{docstring}\n```"
     )
     return help_md
+
+
+def _format_md_docs(text: str):
+    """
+    Helper function to format markdown docs for display in QTextBrowser.
+    Removes the first '---' section and replaces double newlines with <br /> for better rendering.
+    """
+
+    # Remove the first section separated by "---"
+    lines = text.split("\n")
+    result_lines = []
+    skip = False
+    i = 0
+    for line in lines:
+        if line.strip() == "---" and i < 2:
+            skip = not skip
+            i += 1
+            continue
+        if not skip:
+            result_lines.append(line)
+
+    # Replace double newlines with <br />
+    # For some reason QTextBrowser doesn't render them correctly otherwise
+    result = "\n".join(result_lines)
+    result = result.replace("\n\n", "<br />\n\n")
+    return result
 
 
 def get_plug(root: str, name: str, ptype: str):
