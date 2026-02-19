@@ -73,11 +73,6 @@
               position: 'left',
             },
             {
-              type: 'docsVersionDropdown',
-              position: 'right',
-              // dropdownActiveClassDisabled: true,
-            },
-            {
               href: 'https://github.com/xopt-org/Badger',
               label: 'GitHub',
               position: 'right',
