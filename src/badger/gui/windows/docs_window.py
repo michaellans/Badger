@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QMainWindow,
     QTextBrowser,
 )
-from badger.factory import load_badger_docs
+from badger.factory import load_badger_docs, list_generators
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -19,6 +19,8 @@ class BadgerDocsWindow(QMainWindow):
 
         self.render_md = True
         self.docs = None
+
+        self.GENERATOR_LIST = list_generators()
 
         self.init_ui()
         self.config_logic()
@@ -71,8 +73,11 @@ class BadgerDocsWindow(QMainWindow):
 
         self.docs = url_end[0]
 
-        if len(url_end) > 1:
-            ptype = url_end[1]
+        # Check if the docs correspond to a generator,
+        # if so set the ptype so that the correct directory
+        # is searched and docstring is added
+        if self.docs in self.GENERATOR_LIST:
+            ptype = "generator"
         else:
             ptype = None
 
