@@ -340,13 +340,13 @@ def _format_md_docs(text: str):
     return result
 
 
+# regex to match markdown image syntax: ![alt text](url)
 _MD_IMG = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 
 
 def _md_images_to_html(
     text: str,
     base_prefix: str = "./documentation/static",
-    close_tag: bool = True,
     width: int = 575,
 ) -> str:
     """
@@ -360,11 +360,7 @@ def _md_images_to_html(
         if url.startswith("/"):
             url = base_prefix.rstrip("/") + url
 
-        return (
-            f'<img src="{url}" width={width}></img>'
-            if close_tag
-            else f'<img src="{url}">'
-        )
+        return f'<img src="{url}" width={width}></img>'
 
     return _MD_IMG.sub(repl, text)
 
