@@ -66,7 +66,7 @@ Once Badger is installed, launch the GUI by running the following command in the
 badger -g
 ```
 
-Then following [this simple GUI tutorial](https://xopt-org.github.io/Badger/docs/next/getting-started/tutorial_0) to run your first optimizaion in Badger within a couple of minutes!
+Then following [this simple GUI tutorial](https://xopt-org.github.io/Badger/docs/getting-started/tutorial_0) to run your first optimizaion in Badger within a couple of minutes!
 
 ## Citation
 
