@@ -185,7 +185,7 @@ def load_plugin(
     return plugin
 
 
-def load_badger_docs(name: str, ptype: str = None):
+def load_badger_docs(name: str, ptype: str = None) -> str:
     """
     Load general Badger documentation from Badger/documentation/docs/guides.
 
@@ -300,8 +300,7 @@ def _format_docs_str(readme: str, docstring: str, ptype: str) -> str:
     if ptype is None or ptype == "":
         if docstring is None:
             return readme
-
-    if ptype is not None:
+    else:
         # Capitalize first leter
         ptype = ptype.title()
 
@@ -346,21 +345,22 @@ _MD_IMG = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 
 def _md_images_to_html(
     text: str,
-    base_prefix: str = "./documentation/static",
+    base_prefix: str = None,
     width: int = 575,
 ) -> str:
     """
     Helper function to replace markdown image syntax with HTML img tags.
-    This renders markdown images correctly within the QTextBrowser.
+    This renders markdown images correctly within the QTextBrowser
+    and provides the relative filepath to images folder.
     """
+    if base_prefix is None:
+        # Get absolute path to image folder relative to this module
+        base_prefix = Path(__file__).parent.parent.parent / "documentation" / "static"
 
     def repl(m: re.Match) -> str:
-        url = m.group(1).strip().strip("'\"")
-
-        if url.startswith("/"):
-            url = base_prefix.rstrip("/") + url
-
-        return f'<img src="{url}" width={width}></img>'
+        url = m.group(1).strip().strip("'\"").lstrip("./")
+        url = Path(base_prefix / url)
+        return f'<img src="{url.as_posix()}" width={width}></img>'
 
     return _MD_IMG.sub(repl, text)
 
