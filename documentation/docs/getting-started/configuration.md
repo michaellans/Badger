@@ -46,4 +46,4 @@ Where `KEY` is one of the keys in the configuration property list.
 
 The GUI includes a configuration panel as well, which may be more straightforward to use. Note that if some of these configuration properties are missing, the GUI will not launch, and you will need to set the missing property through the CLI interface.
 
-![Badger GUI settings popup](/img/gui/settings.png)
+![Badger GUI settings popup](./../../static/img/gui/settings.png)

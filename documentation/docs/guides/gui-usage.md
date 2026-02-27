@@ -18,13 +18,13 @@ Within an environment, an optimization problem can be defined by selecting which
 
 ### Loading a Template
 
-![Badger GUI load template button](/img/gui/highlight_load_template.png)
+![Badger GUI load template button](./../../static/img/gui/highlight_load_template.png)
 
-If there is already a template for the optimization you’d like to run, click the **Load Template** button at the upper left of the **Environment + VOCS** tab, and select the appropriate template. Make sure to check the environment parameters, variables and variable ranges, objectives, constraints/observables, and selected algorithm before running the optimization. See [the templates page](templates) for more information about templates.
+If there is already a template for the optimization you’d like to run, click the **Load Template** button at the upper left of the **Environment + VOCS** tab, and select the appropriate template. Make sure to check the environment parameters, variables and variable ranges, objectives, constraints/observables, and selected algorithm before running the optimization. See [the templates page](./templates.md) for more information about templates.
 
 ### Run Buttons
 
-![Badger GUI action buttons](/img/gui/highlight_bottom_buttons.png)
+![Badger GUI action buttons](./../../static/img/gui/highlight_bottom_buttons.png)
 
 1. Deletes the stored run data from the History Navigator and on disk.
 2. Save the current run's log to the configured logbook directory.
@@ -37,26 +37,26 @@ If there is already a template for the optimization you’d like to run, click t
 
 ### Plot Area and Run Data
 
-![Badger GUI plot area and run data panel](/img/gui/highlight_plot_area_run_data.png)
+![Badger GUI plot area and run data panel](./../../static/img/gui/highlight_plot_area_run_data.png)
 
 1. **Plot Area** is where run data is visualized as a line graph.
 2. **Run Data** holds the raw data points which are fed into the plot.
 
 ### History Navigator
 
-![Badger GUI history navigator panel](/img/gui/highlight_history_navigator.png)
+![Badger GUI history navigator panel](./../../static/img/gui/highlight_history_navigator.png)
 
 The History Navigator holds past runs, whose output can be loaded again with a single click on a given yaml file entry. Past runs are hierarchically organized by year, year and month, and year, month, and day, just like how they are organized in the Badger archive directory.
 
 ### Algorithm
 
-![Badger GUI algorithm panel](/img/gui/highlight_algorithm.png)
+![Badger GUI algorithm panel](./../../static/img/gui/highlight_algorithm.png)
 
 The **Algorithm** section lets you select an algorithm to use for optimization (1), as well as set the parameters of the selected algorithm (2). See “*Overview of Different Optimization Algorithms*” for a more detailed overview of different options. Common algorithms used at SLAC are expected improvement and nelder-mead.
 
 ### Metadata
 
-![Badger GUI metadata panel](/img/gui/highlight_metadata.png)
+![Badger GUI metadata panel](./../../static/img/gui/highlight_metadata.png)
 
 **Metadata** includes a name (1) and description (2) for the optimization routine. Beneath the description there is also a button to save the current run configuration as a template.
 
@@ -64,7 +64,7 @@ The **Algorithm** section lets you select an algorithm to use for optimization (
 
 ## To Define a New Optimization Routine
 
-![Badger GUI new optimization, upper page](/img/gui/highlight_new_optimization_1.png)
+![Badger GUI new optimization, upper page](./../../static/img/gui/highlight_new_optimization_1.png)
 
 1. **Start by selecting the target environment** from the **Environment** dropdown. Click the **Parameters** button to expand the available environment parameters.
 
@@ -74,7 +74,7 @@ The **Algorithm** section lets you select an algorithm to use for optimization (
 3. **If the “Automatic” checkbox is checked, selecting a variable will automatically add a set of initial points.**
    By default, these will be the current value followed by three random points within a fraction of the variable bounds centered around the current value. If **Automatic** is not checked, or to adjust the initial points, you can use the **Add Current** and **Add Random** buttons to configure your own initial points.
 
-   ![Badger GUI new optimization, lower page](/img/gui/highlight_new_optimization_2.png)
+   ![Badger GUI new optimization, lower page](./../../static/img/gui/highlight_new_optimization_2.png)
 
 4. **Select an objective from the “Objectives” table.**
    Make sure to select whether the objective should be maximized or minimized! Currently only single objective optimization is available, but multi-objective optimization will be supported in the future.
@@ -93,7 +93,7 @@ The **Algorithm** section lets you select an algorithm to use for optimization (
 
 ## Running the Optimization
 
-![Badger GUI action buttons](/img/gui/highlight_bottom_buttons.png)
+![Badger GUI action buttons](./../../static/img/gui/highlight_bottom_buttons.png)
 
 Once the environment, variables, objectives, and algorithm (and any optional constraints and observables) have been defined, the optimization can be started by pressing the green **run** button (5) at the lower center of the GUI. Badger will begin by measuring the objective at the initial points specified in the **Initial Points** table, and will then begin to optimize the selected variables using the chosen algorithm. When the scan is active, the green **run** button will turn into a red **stop** button.
 

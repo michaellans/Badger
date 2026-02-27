@@ -26,7 +26,7 @@ Once you have a converged on a solution or have stopped the optimization after a
 
 ### Step 2: How to access the extension
 
-![extension palette](/img/extensions/extension-palette.png)
+![extension palette](./../../static/img/extensions/extension-palette.png)
 
 Description:
 
@@ -39,7 +39,7 @@ Description:
 
 ### Step 3: Bayesian optimization visualizer controls
 
-![bo extension window](/img/extensions/bo/bo-window.png)
+![bo extension window](./../../static/img/extensions/bo/bo-window.png)
 
 Description:
 
@@ -90,4 +90,4 @@ Shown in each of the examples is the predicted mean and uncertainty of each obje
 
 #### One dimensional chart
 
-![one variable visualization](/img/extensions/bo/bo-one-variable.png)
+![one variable visualization](./../../static/img/extensions/bo/bo-one-variable.png)

@@ -6,7 +6,7 @@ sidebar_position: 1
 
 Badger is an optimizer specifically designed for Accelerator Control Room (ACR).
 
-![Badger architecture](/img/intro/architecture_re.png)
+![Badger architecture](./../static/img/intro/architecture_re.png)
 
 Badger abstracts an optimization run as an optimization algorithm interacts with an environment, by following some pre-defined rules.[^vocs] As visualized in the picture above, the environment is controlled by the algorithm and tunes/observes the control system/machine through an interface, while the users control/monitor the optimization flow through a graphical user interface (GUI) or a command line interface (CLI).
 
@@ -112,7 +112,7 @@ Environments and interfaces are all plugins in Badger.[^algo] A plugin in Badger
     |--...
 ```
 
-The role/feature of each file will be discussed in details later in the [create environments and interfaces](guides/more/create-environments-and-interfaces) section.
+The role/feature of each file will be discussed in details later in the [create environments and interfaces](./guides/more/create-environments-and-interfaces.md) section.
 
 :::tip
 

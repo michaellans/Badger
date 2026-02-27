@@ -26,7 +26,7 @@ Once you have a converged on a solution or have stopped the optimization after a
 
 ### Step 2: How to access the extension
 
-![extension palette](/img/extensions/extension-palette.png)
+![extension palette](./../../static/img/extensions/extension-palette.png)
 
 Description:
 
@@ -39,7 +39,7 @@ Description:
 
 ### Step 3: Pareto front viewer controls
 
-![pareto front viewer window](/img/extensions/pf/pf-window.png)
+![pareto front viewer window](./../../static/img/extensions/pf/pf-window.png)
 
 Description:
 

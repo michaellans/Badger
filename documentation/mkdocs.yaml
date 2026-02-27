@@ -1,0 +1,4 @@
+site_name: My Documentation
+use_directory_urls: false
+theme:
+  name: readthedocs
