@@ -133,7 +133,7 @@ Variable setters and getters may operate on different process variables (PVs). F
 Accelerator control systems require time to settle after parameter changes. Reading observables before the system reaches steady state would give the optimization algorithm misleading data.
 Badger environments can implement configurable wait times to specify delays between applying new variable values and reading measurements. These parameters allow users to adjust settling behavior without modifying code, ensuring measurements always reflect true steady-state performance. Implementation details will vary by facility.
 
-In Badger we have
+In Badger, under Environments + VOCS, we have -
 1. trim_delay: This is time in seconds to wait after setting variables before starting data collection (LCLS-specific)
 2. validate_variable_set: If True, the program will wait to make sure variables reach their desired values (up to 'check_var_timeout') before starting the 'trim_delay'
 3. check_var_timeout: Timeout in seconds for checking if variables have reached target values
