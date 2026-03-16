@@ -129,7 +129,6 @@ Variable setters and getters may operate on different process variables (PVs). F
 #### Delayed observation
 
 Accelerator control systems require time to settle after parameter changes. Reading observables before the system reaches steady state would give the optimization algorithm misleading data.
-Badger provides trim delay settings to specify wait times between applying new vriable values and reading measurements.
-Because on real machine almost all changes to variables will take time to reach stable state, users can add wait time with trim delay under Environment and VOCS.
+Badger environments can implement configurable wait times to specify delays between applying new variable values and reading measurements. These parameters allow users to adjust settling behavior without modifying code, ensuring measurements always reflect true steady-state performance. Implementation details will vary by facility.
 
 ![Trimdelay](/img/gui/trimdelay.png)
