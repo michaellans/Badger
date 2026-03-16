@@ -109,3 +109,33 @@ Pressing the extensions button (8) will allow opening extension windows such as 
 Pressing the delete button (1) will delete the stored run data from the History Navigator panel and on disk. Pressing the log button (2) will save the current run's log to the configured logbook directory.
 
 While the optimization is running, the values of the variables, objectives, and (if selected) constraints and observables will be plotted in the plot section in the top right corner of the GUI. By default, the X-Axis displays the number of optimization iterations, and the Y-Axis for the variables plot is relative to each variable’s starting value. These options can be changed from the GUI via options in the top right corner, above the plots.
+
+### Advanced topics
+
+#### Specify variable range
+Each optimzation variable must have defined bounds that specify the valid search space. These ranges serve dual purposes: they constrain the optimization algorithm to explore only physically meaningful parameter values, and they enforce safety limits to prevent damage to the equipment. Variable ranges are defined in the Environment + VOCS section.
+
+![Variable Range](/img/gui/variablerange.png)
+
+#### Incorporate algorithm parameters
+
+Algorithm hyperparameters control how Xopt optimization algorithms explore the parameter space. These are distinct from the optimization variables (the machine parameters being tuned) and are algorithm-specific settings. These can be specified under Algorithm section. In Bayesian Optimization, hyperparameters include exploration parameter (beta) and maximum number of iterations (max_iter).
+
+![Hyperparameters](/img/gui/hyperparameter.png)
+
+
+#### Check variable readout
+Variable setters and getters may operate on different process variables (PVs). For example, magnet control typically sets via BCTRL but reads via BACT. Since Badger saves initial values using the getter and restores using the setter, reading BACT but writing to BCTRL during restoration may not return the system to its original state. Configure getters to read the same PV type as setters (preferably BCTRL for both) to ensure accurate save/restore functionality.
+
+
+#### Delayed observation
+
+Accelerator control systems require time to settle after parameter changes. Reading observables before the system reaches steady state would give the optimization algorithm misleading data.
+Badger environments can implement configurable wait times to specify delays between applying new variable values and reading measurements. These parameters allow users to adjust settling behavior without modifying code, ensuring measurements always reflect true steady-state performance. Implementation details will vary by facility.
+
+In Badger, under Environments + VOCS, we have -
+1. trim_delay: This is time in seconds to wait after setting variables before starting data collection (LCLS-specific)
+2. validate_variable_set: If True, the program will wait to make sure variables reach their desired values (up to 'check_var_timeout') before starting the 'trim_delay'
+3. check_var_timeout: Timeout in seconds for checking if variables have reached target values
+
+![Trimdelay](/img/gui/delay.png)
