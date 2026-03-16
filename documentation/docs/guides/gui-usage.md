@@ -114,11 +114,13 @@ While the optimization is running, the values of the variables, objectives, and 
 
 #### Specify variable range
 Each optimzation variable must have defined bounds that specify the valid search space. These ranges serve dual purposes: they constrain the optimization algorithm to explore only physically meaningful parameter values, and they enforce safety limits to prevent damage to the equipment. Variable ranges are defined in the Environment + VOCS section.
+
 ![Variable Range](/img/gui/variablerange.png)
 
 #### Incorporate algorithm parameters
 
 Algorithm hyperparameters control how Xopt optimization algorithms explore the parameter space. These are distinct from the optimization variables (the machine parameters being tuned) and are algorithm-specific settings. These can be specified under Algorithm section. In Bayesian Optimization, hyperparameters include exploration parameter (beta) and maximum number of iterations (max_iter).
+
 ![Hyperparameters](/img/gui/hyperparameter.png)
 
 
@@ -131,4 +133,9 @@ Variable setters and getters may operate on different process variables (PVs). F
 Accelerator control systems require time to settle after parameter changes. Reading observables before the system reaches steady state would give the optimization algorithm misleading data.
 Badger environments can implement configurable wait times to specify delays between applying new variable values and reading measurements. These parameters allow users to adjust settling behavior without modifying code, ensuring measurements always reflect true steady-state performance. Implementation details will vary by facility.
 
-![Trimdelay](/img/gui/trimdelay.png)
+In Badger we have
+1. trim_delay: This is time in seconds to wait after setting variables before starting data collection (LCLS-specific)
+2. validate_variable_set: If True, the program will wait to make sure variables reach their desired values (up to 'check_var_timeout') before starting the 'trim_delay'
+3. check_var_timeout: Timeout in seconds for checking if variables have reached target values
+
+![Trimdelay](/img/gui/delay.png)
