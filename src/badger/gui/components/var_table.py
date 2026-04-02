@@ -380,7 +380,7 @@ class VariableTable(QTableWidget):
             default_val = (
                 _bounds.domain[1]
                 if isinstance(_bounds, ContinuousVariable)
-                else _bounds[0]
+                else _bounds[1]
             )
             sb_upper = RobustSpinBox(
                 default_value=default_val, lower_bound=vrange[0], upper_bound=vrange[1]

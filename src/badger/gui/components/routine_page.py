@@ -1250,8 +1250,7 @@ class BadgerRoutinePage(QWidget):
         # get small region around current point to sample
         try:
             vocs, _ = self.env_box.compose_vocs()
-        except Exception as e:
-            print(str(e))
+        except Exception:
             # Switch to manual mode to allow the user fixing the vocs issue
             QMessageBox.warning(
                 self,

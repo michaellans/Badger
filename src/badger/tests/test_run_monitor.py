@@ -300,7 +300,7 @@ class TestRunMonitor:
         qtbot.mouseClick(action_bar.btn_ctrl, Qt.MouseButton.LeftButton)
         assert len(spy) == 1
 
-        spy.wait(timeout=2000)
+        qtbot.wait(500)
 
         qtbot.mouseClick(action_bar.btn_ctrl, Qt.MouseButton.LeftButton)
         assert len(spy) == 2
