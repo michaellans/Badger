@@ -2,6 +2,7 @@ import os
 import time
 import warnings
 import logging
+import yaml
 
 from badger.utils import ts_float_to_str
 from badger.settings import init_settings
@@ -156,7 +157,14 @@ def load_run(run_fname: str) -> Routine:
     # TODO: create utility function to catch warnings to remove code
     # duplication
     with warnings.catch_warnings(record=True) as caught_warnings:
-        routine = Routine.from_file(filename)
+        
+        with open(filename, "r") as f:
+            data = yaml.safe_load(f)
+        routine = Routine(**data)
+        print(f"yaml.safe_load: {routine.formulas}")
+
+        # routine = Routine.from_file(filename)
+        print(f"Routine.from_file: {routine.formulas}")
 
         # Check if any user warnings were caught
         for warning in caught_warnings:

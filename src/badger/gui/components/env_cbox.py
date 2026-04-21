@@ -26,6 +26,7 @@ from badger.gui.components.obj_table import ObjectiveTable
 from badger.gui.components.con_table import ConstraintTable
 from badger.gui.components.obs_table import ObservableTable
 from badger.gui.components.data_table import init_data_table
+from badger.gui.windows.formula_dialog import BadgerFormulaDialog, FormulaEdit
 from badger.settings import init_settings
 from badger.gui.utils import (
     MouseWheelWidgetAdjustmentGuard,
@@ -34,6 +35,10 @@ from badger.gui.utils import (
 from badger.utils import strtobool
 from xopt.vocs import VOCS, ConstraintEnum
 import logging
+from badger.gui.components.editable_table_2 import (
+    ObjectivesListView,
+    ObjectiveRowWidget,
+)
 
 LABEL_WIDTH = 96
 ENV_PARAMS_BTN = 1  # use button or collapsible box for env parameters
@@ -409,14 +414,22 @@ class BadgerEnvBox(QWidget):
         self.edit_obj = edit_obj = QLineEdit()
         edit_obj.setPlaceholderText("Filter objectives...")
         edit_obj.setFixedWidth(192)
+        self.add_formula_obj = add_formula_obj = QPushButton("Add Formula")
+
         self.check_only_obj = check_only_obj = QCheckBox("Show Checked Only")
         check_only_obj.setChecked(False)
         hbox_action_obj.addWidget(edit_obj)
         hbox_action_obj.addStretch()
+        hbox_action_obj.addWidget(add_formula_obj)
         hbox_action_obj.addWidget(check_only_obj)
 
         self.obj_table = ObjectiveTable()
-        vbox_obj_edit.addWidget(self.obj_table)
+        # vbox_obj_edit.addWidget(self.obj_table)
+
+        # New objectives list view with row widgets
+        self.objectives_list_view = ObjectivesListView()
+        vbox_obj_edit.addWidget(self.objectives_list_view)
+
         hbox_obj.addWidget(edit_obj_col)
 
         cbox_more = CollapsibleBox(self, " More")
@@ -503,6 +516,7 @@ class BadgerEnvBox(QWidget):
         self.edit_var.textChanged.connect(self.filter_var)
         self.check_only_var.stateChanged.connect(self.toggle_var_show_mode)
         self.edit_obj.textChanged.connect(self.filter_obj)
+        self.add_formula_obj.clicked.connect(self.add_formula)
         self.check_only_obj.stateChanged.connect(self.toggle_obj_show_mode)
         self.edit_con.textChanged.connect(self.filter_con)
         self.check_only_con.stateChanged.connect(self.toggle_con_show_mode)
@@ -515,6 +529,11 @@ class BadgerEnvBox(QWidget):
         self.con_table.data_changed.connect(lambda: self.update_vocs("con_table"))
         self.sta_table.data_changed.connect(lambda: self.update_vocs("sta_table"))
         self.var_table.data_changed.connect(lambda: self.update_vocs("var_table"))
+
+        self.objectives_list_view.data_changed.connect(
+            lambda: self.update_vocs("objectives_list_view")
+        )
+        self.objectives_list_view.formula_double_clicked.connect(self.edit_formula)
 
     def update_vocs(self, origin: str):
         logger.debug(f"Emitting vocs_updated signal from env_cbox: {origin}")
@@ -559,9 +578,13 @@ class BadgerEnvBox(QWidget):
 
     def toggle_obj_show_mode(self, _):
         self.obj_table.update_show_selected_only(self.check_only_obj.isChecked())
+        self.objectives_list_view.show_checked_only(
+            self.check_only_obj.isChecked()
+        )  # new table
 
     def filter_obj(self):
         self.obj_table.update_keyword(self.edit_obj.text())
+        self.objectives_list_view.set_filter(self.edit_obj.text())  # new table
 
     def toggle_con_show_mode(self, _):
         self.con_table.update_show_selected_only(self.check_only_con.isChecked())
@@ -607,15 +630,42 @@ class BadgerEnvBox(QWidget):
             stylesheet = ""
         self.setStyleSheet(stylesheet)
 
+    def add_formula(self):
+        print("add formula button pressed")
+        dlg = BadgerFormulaDialog(
+            parent=self,
+            table=self.objectives_list_view,
+        )
+        self.tc_dialog = dlg
+        try:
+            dlg.exec()
+        finally:
+            self.tc_dialog = None
+
+    def edit_formula(self, row_widget: ObjectiveRowWidget):
+        print("edit formula:")
+        dlg = FormulaEdit(
+            parent=self,
+            table=self.objectives_list_view,
+            row_widget=row_widget,
+        )
+        self.tc_dialog = dlg
+        try:
+            dlg.exec()
+        finally:
+            self.tc_dialog = None
+
     def compose_vocs(self) -> tuple[VOCS, list[str]]:
         # Compose the VOCS settings
         variables = self.var_table.export_variables()
 
         objectives: dict[str, Any] = {}
-        for objective in self.obj_table.export_data():
+        for objective in self.objectives_list_view.export_data():
             obj_name = next(iter(objective))
-            (rule,) = objective[obj_name]
-            objectives[obj_name] = rule
+
+            rule = objective[obj_name]["rule"]
+
+            objectives[obj_name] = rule  # [0]
 
         constraints: dict[str, list[float | ConstraintEnum]] = {}
         critical_constraints: list[str] = []
@@ -638,6 +688,9 @@ class BadgerEnvBox(QWidget):
                 constraints=constraints,
                 constants={},
                 observables=observables,
+            )
+            print(
+                f"VOCS composed in env_cbox: variables={list(vocs.variables.keys())}, objectives={list(vocs.objectives.keys())}, constraints={list(vocs.constraints.keys())}, observables={vocs.observables}"
             )
         except ValidationError as e:
             raise BadgerRoutineError(

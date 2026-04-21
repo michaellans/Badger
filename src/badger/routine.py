@@ -20,6 +20,7 @@ from xopt.generators.sequential import SequentialGenerator
 from badger.utils import curr_ts
 from badger.environment import BaseEnvironment, instantiate_env
 from badger.factory import get_env
+from badger.formula_utils import expanded_formula_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -116,11 +117,34 @@ class Routine(Xopt):
             # create evaluator
             env = data["environment"]
 
+            # get formulas, expand and map to output names
+            formulas = data.get("formulas", {}) or {}
+            print(f"Create_mapping: formulas: {formulas}")
+            output_names = list(data["vocs"].output_names)
+            print(f"Create_mapping: output_names: {output_names}")
+            expanded_names, reverse_map = expanded_formula_mapping(data)
+            print(f"FORWARD: {expanded_names}")
+            print(f"REVERSE: {reverse_map}")
+            full_observables = list(expanded_names.values())
+            selected_observables = [
+                expanded_names[output_name] for output_name in output_names
+            ]
+            print(f"SELECTED OBSERVABLES: {selected_observables}")
+
             def evaluate_point(point: dict):
                 logger.debug(f"Evaluating point: {point}")
                 point = pd.Series(point).explode().to_dict()
                 env.set_variables(point)
-                obs = env.get_observables(data["vocs"].output_names)
+                print(f"get_observables vocs: {data['vocs'].output_names}")
+                print(f"get_observables full: {full_observables}")
+                print(f"get_observables selected: {selected_observables}")
+                # Get observables from env
+                obs = env.get_observables(selected_observables)
+                # map observables back to output names from routine
+                for expanded_name, original_name in reverse_map.items():
+                    if expanded_name in obs:
+                        obs[original_name] = obs.pop(expanded_name)
+
                 ts = curr_ts()
                 obs["timestamp"] = ts.timestamp()
                 obs["live"] = 1
