@@ -36,7 +36,7 @@ class FormulaNameLabel(QLabel):
 class ObservableItem:
     checked: bool
     name: str
-    is_name_editable: bool = False 
+    is_name_editable: bool = False
     is_formula_editable: bool = False
     formula: dict[str, Any] = field(
         default_factory=lambda: {"formula_str": None, "variable_mapping": {}}
@@ -873,11 +873,7 @@ class ObjectivesListView(QScrollArea):
     def _on_item_formula_updated(
         self, item: ObjectiveItem, new_formula_str: str
     ) -> None:
-        """
-        Update formula BEFORE checking for circular references. This allows
-        us to support self-referential formulas, where an item can reference itself as long as the circular reference is through the variable mapping and not the formula_str. For example, if we have an item A with formula_str "mean(`A`)", this is a valid self-referential formula because the variable mapping for A will be empty (since it doesn't directly reference any other items), and when we check for circular references, we will see that A does not reference itself through the variable mapping. However, if we had an item B with formula_str "mean(`A`)" and then updated A's formula_str to "mean(`B`)", this would create a circular reference because A's variable mapping would include B, and B's variable mapping would include A.
-
-        """
+        """ """
         # check for duplicate formulas
         if new_formula_str in self.formula_strs:
             self.show_duplicate_warning(new_formula_str)

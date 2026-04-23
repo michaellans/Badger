@@ -485,7 +485,9 @@ class BadgerRoutinePage(QWidget):
             formulas = {}
         objectives = []
         status = {}
-        objectives_names_full = self.configs["observations"] + list(formulas.keys())
+        objectives_names_full = list(self.configs["observations"]) + list(
+            formulas.keys()
+        )
         for name in objectives_names_full:
             obj = {name: self.env_box.obj_table.default_info()}
             status[name] = False  # selected
@@ -518,7 +520,9 @@ class BadgerRoutinePage(QWidget):
             formulas = {}
         constraints = []
         status = {}
-        constraints_names_full = self.configs["observations"] + list(formulas.keys())
+        constraints_names_full = list(self.configs["observations"]) + list(
+            formulas.keys()
+        )
         for name in constraints_names_full:
             cons = {name: self.env_box.con_table.default_info()}
             status[name] = False  # selected
@@ -558,7 +562,7 @@ class BadgerRoutinePage(QWidget):
         observables = []
         status = {}
         observables_names_full = (
-            var_names + self.configs["observations"] + list(formulas.keys())
+            var_names + list(self.configs["observations"]) + list(formulas.keys())
         )
         for name in observables_names_full:
             obs = {name: []}
@@ -835,7 +839,9 @@ class BadgerRoutinePage(QWidget):
 
         objectives = []
         status = {}
-        objectives_names_full = self.configs["observations"] + list(formulas.keys())
+        objectives_names_full = list(self.configs["observations"]) + list(
+            formulas.keys()
+        )
         # objectives_names_full = list(set(self.configs["observations"]) | set(routine.vocs.objectives.keys()) | set(formulas.keys()) )
         # adding routine.vocs.objectives.keys() allows for new observables to be defined in the routine which are not in the env
         print(f"refresh_ui: full_objectives: {objectives_names_full}")
@@ -876,7 +882,9 @@ class BadgerRoutinePage(QWidget):
             formulas = {}
         constraints = []
         status = {}
-        constraints_names_full = self.configs["observations"] + list(formulas.keys())
+        constraints_names_full = list(self.configs["observations"]) + list(
+            formulas.keys()
+        )
         for name in constraints_names_full:
             cons = {name: self.env_box.con_table.default_info()}
             status[name] = False  # selected
@@ -920,7 +928,7 @@ class BadgerRoutinePage(QWidget):
         observables = []
         status = {}
         observables_names_full = (
-            var_names + self.configs["observations"] + list(formulas.keys())
+            var_names + list(self.configs["observations"]) + list(formulas.keys())
         )
         for name in observables_names_full:
             obs = {name: {}}
@@ -1140,10 +1148,19 @@ class BadgerRoutinePage(QWidget):
         objectives = []
         status = {}
         for name in self.configs["observations"]:
-            # this is where the default value is specified. It should check if this is defined in the environment!!!!!
-            # also why is this called cons here?
             default_obj = self.env_box.obj_table.default_info()
+
+            # If defaults defined for name in environment use instead
+            try:
+                print(self.configs["observations"])
+                rule = self.configs["observations"][name]["default_info"]["rule"]
+                default_obj = [rule]
+            except (KeyError, TypeError):
+                # Improve
+                pass
+
             obj = {name: default_obj}
+            print(f"OBJ: {obj}")
             status[name] = False  # selected
             objectives.append(obj)
         self.env_box.check_only_obj.blockSignals(True)
@@ -1179,7 +1196,8 @@ class BadgerRoutinePage(QWidget):
             var_names = []  # do not show var names in observables until we have a fix to get_observables
         else:
             var_names = []
-        for name in var_names + self.configs["observations"]:
+
+        for name in var_names + list(self.configs["observations"]):
             obs = {name: {}}
             status[name] = False  # selected
             observables.append(obs)
