@@ -560,7 +560,7 @@ class BadgerListEditor(QWidget):
 
 
 class BadgerPydanticEditor(QTreeWidget):
-    vocs: VOCS = VOCS()
+    vocs: VOCS = VOCS(variables={})
     defaults: dict[str, Any] = {}
     generator_name: str = ""
     model_class: type[BaseModel] | None = None
@@ -687,7 +687,7 @@ class BadgerPydanticEditor(QTreeWidget):
     ):
         logger.debug(f"vocs: {vocs}")
         logger.debug(f"defaults: {defaults}")
-        self.vocs = vocs or VOCS()
+        self.vocs = vocs or VOCS(variables={})
         self.generator_name = generator_name
         self.defaults = defaults
 
@@ -1039,8 +1039,39 @@ class BadgerPydanticEditor(QTreeWidget):
 
         try:
             parameters = self.get_parameters_yaml()
-
             parameters_dict = yaml.load(parameters, Loader=CustomSafeLoader)
+
+            def convert_dict(val):
+                # Convert str-encoded dicts (and lists) back into actual dict objects."""
+                if isinstance(val, str):
+                    stripped = val.strip()
+                    if stripped.startswith("{") or stripped.startswith("["):
+                        try:
+                            return ast.literal_eval(stripped)
+                        except (ValueError, SyntaxError):
+                            return val  # Prob a str so just return it
+                return val  # If a str just return it
+
+            # Apply conversion function
+            if "vocs" in parameters_dict:
+                for key in [
+                    "variables",
+                    "objectives",
+                    "constraints",
+                    "constants",
+                    "observables",
+                ]:
+                    if key in parameters_dict["vocs"]:
+                        parameters_dict["vocs"][key] = convert_dict(
+                            parameters_dict["vocs"][key]
+                        )
+
+            # Not valid unlesss has at least one objective
+            if "vocs" not in parameters_dict:
+                return False
+            obj_data = parameters_dict["vocs"].get("objectives")
+            if not obj_data or len(obj_data) == 0:
+                return False
 
             model = self.model_class.model_validate(parameters_dict)
 
