@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QTextCursor
+import re
 
 from badger.formula_utils import sanitize_for_validation, validate_formula
 from badger.gui.components.editable_table_2 import (
@@ -34,6 +35,38 @@ QPushButton
     color: #000000;
 }
 """
+
+
+def _surround_with_backticks(string_list, text):
+    """
+    Surrounds any strings from string_list found in text with backticks,
+    but only if not already backticked.
+
+    Args:
+        string_list: List of strings to search for
+        text: The string to search in and modify
+
+    Returns:
+        Modified text with matching strings surrounded by backticks
+    """
+    result = text
+
+    # Sort by length (longest first) to handle overlapping matches correctly
+    sorted_list = sorted(string_list, key=len, reverse=True)
+
+    for string in sorted_list:
+        # Escape the string for use in regex
+        escaped = re.escape(string)
+
+        # Pattern: match string NOT preceded or followed by backtick
+        # (?<!`) - negative lookbehind: not preceded by backtick
+        # (?!`) - negative lookahead: not followed by backtick
+        pattern = rf"(?<!`){escaped}(?!`)"
+
+        # Replace with backtick-surrounded version
+        result = re.sub(pattern, f"`{string}`", result)
+
+    return result
 
 
 class CompleterTextEdit(QTextEdit):
@@ -137,9 +170,17 @@ class BadgerFormulaDialog(QDialog):
         self.table = table
 
         self.items = self.table.items
+        self.variables = {}
 
         self.init_ui()
         self.config_logic()
+
+        self.setup_var_table()
+
+    def setup_var_table(self):
+        for i, item in enumerate(self.items):
+            # print(item, i)
+            pass
 
     def init_ui(self) -> None:
         """
@@ -204,6 +245,7 @@ class BadgerFormulaDialog(QDialog):
         name_header_layout.setContentsMargins(0, 0, 0, 0)
 
         name_label = QLabel("Name: ")
+        name_label.setToolTip("This is what shows up on the GUI")
 
         self.info_button = QPushButton("Show Info >")
         self.info_button.setCheckable(True)
@@ -218,10 +260,28 @@ class BadgerFormulaDialog(QDialog):
         name_layout.addWidget(name_header)
         name_layout.addWidget(self.name_edit)
 
+        variable_widget = QWidget()
+        variable_layout = QVBoxLayout(variable_widget)
+        variable_layout.setContentsMargins(0, 0, 0, 0)
+        variable_label = QLabel("Variables: ")
+        variable_edit_widget = QWidget()
+        self.variable_edit_layout = QVBoxLayout(variable_edit_widget)
+
+        variable_layout.addWidget(variable_label)
+        variable_layout.addWidget(variable_edit_widget)
+
         formula_edit_widget = QWidget()
         formula_edit_layout = QVBoxLayout(formula_edit_widget)
         formula_edit_layout.setContentsMargins(0, 0, 0, 0)
         formula_label = QLabel("Formula: ")
+        formula_label.setToolTip(
+            "This is what will actually be    \n"
+            + "passed to the interface. If    \n"
+            + "other formulas are referenced  \n"
+            + "they will be expanded, and any \n"
+            + "calculations will be done after\n"
+            + "data is retrieved."
+        )
 
         self.formula_edit = CompleterTextEdit()
         self.formula_edit.setPlaceholderText(
@@ -232,16 +292,20 @@ class BadgerFormulaDialog(QDialog):
             + "    - mean(`f`), std(`f`), percentile(`f`, 80)\n"
             + "    - operators including *, +, -, /, **\n"
         )
+        self.formula_edit.setStyleSheet("""
+                color: darkGray;
+            """)
         completer = QCompleter(self.table.item_names, self.formula_edit)
         completer.setCaseSensitivity(Qt.CaseInsensitive)  # ignore case
-        completer.setFilterMode(Qt.MatchContains)  # match substring (optional)
-        # completer.setFilterMode(Qt.MatchStartsWith)      # default behavior
+        # completer.setFilterMode(Qt.MatchContains)  # match substring (optional)
+        completer.setFilterMode(Qt.MatchStartsWith)  # default behavior
 
         self.formula_edit.setCompleter(completer)
         formula_edit_layout.addWidget(formula_label)
         formula_edit_layout.addWidget(self.formula_edit)
 
         formula_layout.addWidget(name_widget)
+        # formula_layout.addWidget(variable_widget)
         formula_layout.addWidget(formula_edit_widget)
 
         return formula_widget
@@ -301,7 +365,7 @@ class BadgerFormulaDialog(QDialog):
         name = self.name_edit.text()
         formula_str = self.formula_edit.toPlainText().strip()
         if self.validate_formula(formula_str):  # make sure formula is valid
-            print(f"Add formula: {name}, {formula_str}")
+            print(f"formula_dialog adding formula: {name}, {formula_str}")
             self.table.add_item(name, formula_str, checked=True)
             self.close()
         else:
@@ -313,12 +377,16 @@ class BadgerFormulaDialog(QDialog):
         using allowed symbols
         """
         print(f"dialog validate formula: {expr}")
+        matches = self.table.check_for_var_references(expr)
+        # I don't think this is still needed, allowed separately
+        # referencing vars in backticks and formulas without
+        expr = _surround_with_backticks(matches, expr)
+
         python_expr, allowed = sanitize_for_validation(expr)
         try:
             validate_formula(python_expr, allowed_symbols=allowed)
-            print("Formula valid")
             return True
-        except ValueError:
+        except TypeError:
             return False
 
     def cancel(self):
@@ -357,7 +425,9 @@ class FormulaEdit(BadgerFormulaDialog):
 
     def construct_formula_str(self):
         name = self.name_edit.text()
-        formula_str = self.formula_edit.toPlainText().strip()
+        formula_str = " ".join(
+            self.formula_edit.toPlainText().split()
+        )  # strip newlines, tabs, extra spaces
         if self.validate_formula(formula_str):  # make sure formula is valid
             print(f"Update formula: {name}, {formula_str}")
             if formula_str != self.item.formula["formula_str"]:

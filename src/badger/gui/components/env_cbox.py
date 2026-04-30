@@ -655,6 +655,23 @@ class BadgerEnvBox(QWidget):
         finally:
             self.tc_dialog = None
 
+    def _construct_obs_func_str(self, operation: str, obj_name: str):
+        stats_mapping = {
+            "mean": lambda x: f"mean(`{x}`)",
+            "std": lambda x: f"std(`{x}`)",
+            "p80": lambda x: f"percentile(`{x}`, 80)",
+            "p75": lambda x: f"percentile(`{x}`, 75)",
+            "p50": lambda x: f"percentile(`{x}`, 50)",
+            "median": lambda x: f"percentile(`{x}`, 50)",
+            "p25": lambda x: f"percentile(`{x}`, 25)",
+            "std_rel": lambda x: f"std(`{x}`)/mean(`{x}`)",
+        }
+
+        if operation in stats_mapping:
+            new_obj_name = stats_mapping[operation](obj_name)
+            print(new_obj_name)
+            return new_obj_name
+
     def compose_vocs(self) -> tuple[VOCS, list[str]]:
         # Compose the VOCS settings
         variables = self.var_table.export_variables()
@@ -664,6 +681,10 @@ class BadgerEnvBox(QWidget):
             obj_name = next(iter(objective))
 
             rule = objective[obj_name]["rule"]
+            stat = objective[obj_name]["stat"]
+
+            if stat not in ["none", "formula"]:
+                obj_name = self._construct_obs_func_str(stat, obj_name)
 
             objectives[obj_name] = rule  # [0]
 

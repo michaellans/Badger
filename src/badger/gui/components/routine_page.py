@@ -839,41 +839,93 @@ class BadgerRoutinePage(QWidget):
 
         objectives = []
         status = {}
-        objectives_names_full = list(self.configs["observations"]) + list(
-            formulas.keys()
+        objectives_names_full = list(
+            set(
+                list(self.configs["observations"])  # env observables
+                + list(formulas.keys())  # routine formulas
+                # + list(routine.vocs.objectives.keys()) # non-env (added) object
+            )
         )
         # objectives_names_full = list(set(self.configs["observations"]) | set(routine.vocs.objectives.keys()) | set(formulas.keys()) )
         # adding routine.vocs.objectives.keys() allows for new observables to be defined in the routine which are not in the env
         print(f"refresh_ui: full_objectives: {objectives_names_full}")
+        print(f"refresh_ui: configs['observations']: {self.configs['observations']}")
+        print(f"refresh_ui: vocs objectives: {list(routine.vocs.objectives.keys())}")
         for name in objectives_names_full:
-            # if name in
-            obj = {name: self.env_box.obj_table.default_info()}
-            print(f"obj: default: {obj}")
-            status[name] = False  # selected
-            objectives.append(obj)
+            try:
+                # get defaults from env configs
+                rule = self.configs["observations"][name]["defaults"].get(
+                    "rule", "MINIMIZE"
+                )
+                stat = self.configs["observations"][name]["defaults"].get(
+                    "stat", "none"
+                )
+            except (KeyError, TypeError):
+                # no default found in env configs, set to general default values
+                rule, stat = "MINIMIZE", "none"
+
+            print(f"obj: default: {name}: [{rule}, {stat}]")
+            status[name] = False  # start with not selected
+            objectives.append({name: [rule, stat]})  # add objective with default values
+
         for name, val in routine.vocs.objectives.items():
+            # iterate through objectives defined in routine.vocs
+            # this will overwrite default values with those used
+            # in the routine, as well as capture new observables
+            # which may have been added.
+
+            stat = None  # reset per objective
             rule = val
-            print(f"refresh_ui: vocs objectives: {name}")
+            print(
+                f"refresh_ui: vocs objectives: {name}, {routine.vocs.objectives[name]}"
+            )
+
+            # unwrap if not known and has backtick
+            if name not in objectives_names_full and "`" in name:
+                stat = stat_key_from_expr(name)
+                name = extract_variable_keys(name)[0]
+                print(f"refresh_ui: extracted name: {name}, stat: {stat}")
+
+            # if still new, add it (this fixes: new observable + stat wrapper)
+            if name not in objectives_names_full:
+                print(f"new objective not in env or formulas: {name}")
+                objectives_names_full.append(name)
+                # start by adding defaults
+                objectives.append({name: ["MINIMIZE", "none"]})
+                status[name] = False
+
             idx = objectives_names_full.index(name)
+
             if idx == -1:
                 raise BadgerRoutineError(
                     f"Objective {name} not found in the routine's observables."
                 )
             else:
-                objectives[idx] = {name: [rule]}
+                # THIS IS WHERE the stat is being lost and not added to table
+                # fix:
+                print(f"stat: {stat}")
+                if stat is None:
+                    stat = "none"
+
+                objectives[idx] = {name: [rule, stat]}
             status[name] = True
 
         # Show selected objectives only
         self.env_box.edit_obj.blockSignals(True)
         self.env_box.edit_obj.setText("")
         self.env_box.edit_obj.blockSignals(False)
-        self.env_box.obj_table.keyword = ""
+        # self.env_box.obj_table.keyword = ""
         # self.env_box.obj_table.show_selected_only = True
         print(f"refresh_ui: update items: {objectives}")
-        with BlockSignalsContext(self.env_box.obj_table):
-            self.env_box.obj_table.update_items(objectives, status, formulas)
+        # with BlockSignalsContext(self.env_box.obj_table):
+        #    self.env_box.obj_table.update_items(objectives, status, formulas)
         with BlockSignalsContext(self.env_box.objectives_list_view):
-            self.env_box.objectives_list_view.update_items(objectives, status, formulas)
+            self.env_box.objectives_list_view.update_items(
+                objectives,
+                status,
+                formulas,
+                env_observables=self.configs["observations"],
+            )
 
         # Initialize the constraints table with env observables
         try:
@@ -1147,14 +1199,18 @@ class BadgerRoutinePage(QWidget):
 
         objectives = []
         status = {}
+        formulas = {}
         for name in self.configs["observations"]:
             default_obj = self.env_box.obj_table.default_info()
 
             # If defaults defined for name in environment use instead
             try:
-                print(self.configs["observations"])
-                rule = self.configs["observations"][name]["default_info"]["rule"]
-                default_obj = [rule]
+                # print(self.configs["observations"])
+                rule = self.configs["observations"][name]["defaults"]["rule"]
+                stat = self.configs["observations"][name]["defaults"].get(
+                    "stat", "none"
+                )
+                default_obj = [rule, stat]
             except (KeyError, TypeError):
                 # Improve
                 pass
@@ -1162,16 +1218,25 @@ class BadgerRoutinePage(QWidget):
             obj = {name: default_obj}
             print(f"OBJ: {obj}")
             status[name] = False  # selected
+
+            # If configs is a dict, see if there are default formulas
+            # defined for observables in environemnt
+            if (
+                isinstance(self.configs["observations"], dict)
+                and "formula" in self.configs["observations"][name]
+            ):
+                formulas[name] = self.configs["observations"][name]["formula"]
+
             objectives.append(obj)
         self.env_box.check_only_obj.blockSignals(True)
         self.env_box.check_only_obj.setChecked(False)
         self.env_box.check_only_obj.blockSignals(False)
-        self.env_box.obj_table.show_selected_only = False
+        # self.env_box.obj_table.show_selected_only = False
         # with BlockSignalsContext(self.env_box.obj_table):
-        self.env_box.obj_table.update_items(objectives, status, vocs_signal=False)
+        # self.env_box.obj_table.update_items(objectives, status, vocs_signal=False)
 
         self.env_box.objectives_list_view.update_items(
-            objectives, status, vocs_signal=False
+            objectives, status, formulas, vocs_signal=False
         )
 
         # Initialize the constraints table with env observables
@@ -1870,6 +1935,7 @@ class BadgerRoutinePage(QWidget):
                 vrange_hard_limit=vrange_hard_limit,
                 initial_point_actions=initial_point_actions,
                 additional_variables=self.env_box.var_table.addtl_vars,
+                # additonal_observables=self.env_box.objectives_list_view.additional_observables,
                 formulas=self.env_box.objectives_list_view.formulas,
                 constraint_formulas=self.env_box.con_table.formulas,
                 observable_formulas=self.env_box.sta_table.formulas,

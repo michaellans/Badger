@@ -28,6 +28,8 @@ _ALLOWED_NODES = (
     ast.Name,
     ast.Load,
     ast.BitXor,
+    ast.List,
+    ast.Tuple,
 )
 
 
@@ -37,6 +39,17 @@ def validate_formula(expr: str, allowed_symbols: Set[str]) -> None:
     for node in ast.walk(tree):
         if not isinstance(node, _ALLOWED_NODES):
             raise ValueError(f'Operator "{type(node).__name__}" not allowed')
+
+        # Limit list/tuple size, prevent nested lists (only allow name, constant)
+        if isinstance(node, (ast.List, ast.Tuple)):
+            for element in node.elts:
+                if not isinstance(element, (ast.Name, ast.Constant)):
+                    raise ValueError(
+                        f"Lists/tuples can only contain simple values, not {type(element).__name__}"
+                    )
+
+            if len(node.elts) > 50:  # arbitrary size
+                raise ValueError(f"List/tuple too large: {len(node.elts)} elements")
 
         if isinstance(node, ast.Call):
             fn = node.func.id if isinstance(node.func, ast.Name) else None
@@ -93,7 +106,8 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
             # print("SUB")
             # print(f"  var: {var}")
             if var not in mapping:
-                raise KeyError(f"Missing mapping for `{var}` in formula: {s!r}")
+                return f"`{var}`"  # treat as base variable
+                # raise KeyError(f"Missing mapping for `{var}` in formula: {s!r}")
             # print(f"  mapping: {mapping}")
             target = mapping[var]
             # print(f"  target: {mapping[var]}")
@@ -126,6 +140,11 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
     forward = {}
 
     for name in formulas:
+        if not formulas[name]["formula_str"]:
+            # using formulas to store user-added observables without formulas
+            # if no formula_str treat it as not a formula for mapping.
+            forward[name] = name
+            continue
         expanded_name = expand_name(name)
         forward[name] = expanded_name
 
