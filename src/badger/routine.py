@@ -122,12 +122,12 @@ class Routine(Xopt):
             print(f"Create_mapping: formulas: {formulas}")
             output_names = list(data["vocs"].output_names)
             print(f"Create_mapping: output_names: {output_names}")
-            expanded_names, reverse_map = expanded_formula_mapping(data)
+            expanded_names, reverse_map, base_obs = expanded_formula_mapping(data)
             print(f"FORWARD: {expanded_names}")
             print(f"REVERSE: {reverse_map}")
             full_observables = list(expanded_names.values())
             selected_observables = [
-                expanded_names[output_name] for output_name in output_names
+                expanded_names[output_name] for output_name in output_names + base_obs
             ]
             print(f"SELECTED OBSERVABLES: {selected_observables}")
 

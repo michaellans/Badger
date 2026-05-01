@@ -5,11 +5,65 @@ import statistics
 import numpy as np
 from typing import Set, Dict, Any, Tuple
 
-_ALLOWED_FUNC_NAMES: set[str] = {
-    *vars(math),
-    *vars(statistics),
-    *vars(np),
+_UNSAFE_MATH_FUNCS = {
+    "factorial",
+    "gamma",
+    "lgamma",
+    "comb",
+    "perm",
 }
+
+_SAFE_NUMPY_FUNCS = {
+    "mean",
+    "median",
+    "std",
+    "min",
+    "max",
+    "sum",
+    "abs",
+    "sqrt",
+    "square",
+    "exp",
+    "log",
+    "log10",
+    "log2",
+    "sin",
+    "cos",
+    "tan",
+}
+
+_SAFE_BUILTINS = {
+    "abs",
+    "sum",
+    "min",
+    "max",
+    "round",
+    "int",
+    "float",
+    "bool",
+}
+
+_ALLOWED_FUNC_NAMES: set[str] = (
+    {
+        name
+        for name in dir(math)
+        if callable(getattr(math, name))
+        and not name.startswith("_")
+        and name not in _UNSAFE_MATH_FUNCS
+    }
+    | {
+        name
+        for name in dir(statistics)
+        if callable(getattr(statistics, name)) and not name.startswith("_")
+    }
+    | _SAFE_NUMPY_FUNCS
+    | _SAFE_BUILTINS
+    | {
+        "pi",
+        "e",
+        "tau",
+    }
+)
 
 _ALLOWED_NODES = (
     ast.Expression,
@@ -43,7 +97,7 @@ def validate_formula(expr: str, allowed_symbols: Set[str]) -> None:
         # Limit list/tuple size, prevent nested lists (only allow name, constant)
         if isinstance(node, (ast.List, ast.Tuple)):
             for element in node.elts:
-                if not isinstance(element, (ast.Name, ast.Constant)):
+                if not isinstance(element, (ast.Name, ast.Constant, ast.BinOp)):
                     raise ValueError(
                         f"Lists/tuples can only contain simple values, not {type(element).__name__}"
                     )
@@ -58,7 +112,9 @@ def validate_formula(expr: str, allowed_symbols: Set[str]) -> None:
 
         if isinstance(node, ast.Name):
             if node.id not in allowed_symbols and node.id not in _ALLOWED_FUNC_NAMES:
-                raise ValueError(f'Unknown symbol "{node.id}"')
+                raise ValueError(
+                    f'Unknown symbol "{node.id}". Use `backticks` around variable names'
+                )
 
 
 def sanitize_for_validation(expr: str) -> tuple[str, set[str]]:
@@ -93,25 +149,29 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
 
     formulas = data.get("formulas", {}) or {}
     output_names = list(data["vocs"].output_names)
+    base_observables = []  # keep trach of observables within formulas
     print(f"start expanding formulas: {formulas}")
 
     def expand_node(node: Dict[str, Any]) -> str:
-        # print(f"expand node? {node}")
+        print(f"expand node? {node}")
         s = node["formula_str"]
         mapping = node.get("variable_mapping") or {}
 
-        # print(f"mapping: {mapping}")
+        print(f"mapping: {mapping}")
+
         def sub(m: re.Match) -> str:
             var = m.group(1)
-            # print("SUB")
-            # print(f"  var: {var}")
+            print("SUB")
+            print(f"  var: {var}")
             if var not in mapping:
+                base_observables.append(var)
                 return f"`{var}`"  # treat as base variable
                 # raise KeyError(f"Missing mapping for `{var}` in formula: {s!r}")
-            # print(f"  mapping: {mapping}")
+            print(f"  mapping: {mapping}")
             target = mapping[var]
-            # print(f"  target: {mapping[var]}")
-            if target is None:  # base variable
+            print(f"  target: {mapping[var]}")
+            if not target:  # base variable
+                base_observables.append(var)
                 return f"`{var}`"
             return f"({expand_node(target)})"
 
@@ -129,8 +189,8 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
             raise KeyError(f"Unknown formula name: {name!r}")
 
         stack.add(name)
-        # print(f"formulas: {formulas}")
-        # print(f"node: {formulas[name]}")
+        print(f"formulas: {formulas}")
+        print(f"node: {formulas[name]}")
         out = expand_node(formulas[name])
         stack.remove(name)
 
@@ -153,11 +213,16 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
             # it is not a formula, should map to itself
             forward[output_name] = output_name
 
+    print(f"base_observables: {base_observables}")
+    for obs_name in base_observables:
+        if obs_name not in forward:
+            forward[obs_name] = obs_name
+
     reverse: Dict[str, str] = {}
     for name, expanded in forward.items():
         reverse.setdefault(expanded, name)
 
-    return forward, reverse
+    return forward, reverse, base_observables
 
 
 def stat_key_from_expr(expr: str) -> str:

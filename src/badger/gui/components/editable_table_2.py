@@ -407,9 +407,19 @@ class ObjectiveInsertRowWidget(QWidget):
         """Handle Enter key press."""
         name = self.name_input.text().strip()
         if name:
+            if "`" in name:
+                self.show_name_warning()
+                return
             self.item_requested.emit(name)
             self.name_input.clear()
         self.name_input.setFocus()
+
+    def show_name_warning(self) -> None:
+        QMessageBox.warning(
+            self,
+            "Use 'add formula' button to add equations!",
+            "Use 'add formula' button to add equations!",
+        )
 
 
 class HeaderWidget(QWidget):
@@ -585,9 +595,14 @@ class ObjectivesListView(QScrollArea):
             elif item.widget() == self.insert_row:
                 pass
 
+        all_names = self.item_names
+        sorted_names = sorted(all_names)
+        items = self.items
+
         # Filter and display items
         row_index = 0
-        for item in self._all_items:
+        for name in sorted_names:
+            item = items[name]
             if self._passes_filters(item):
                 row_widget = ObjectiveRowWidget(item, row_index, parent=self)
                 row_widget.item_renamed.connect(self._on_item_renamed)
@@ -676,11 +691,13 @@ class ObjectivesListView(QScrollArea):
     @property
     def item_names(self) -> list[str]:
         """Get a list of all item names."""
+        # print(f"item names: {[item.name for item in self._all_items]}")
         return [item.name for item in self._all_items]
 
     @property
     def items(self) -> dict[str, ObjectiveItem]:
         """Get a dictionary of items keyed by name."""
+        # print("items property called")
         return {item.name: item for item in self._all_items}
 
     @property
@@ -855,6 +872,10 @@ class ObjectivesListView(QScrollArea):
         new_name : str
             The new name of the item
         """
+        if new_name in self.item_names:
+            self.show_duplicate_warning(new_name)
+            return
+
         # Update formula_str in all items that reference the old name
         for item in self._all_items:
             if item.formula["formula_str"]:

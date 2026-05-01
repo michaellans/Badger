@@ -435,6 +435,9 @@ class FormulaEdit(BadgerFormulaDialog):
                 self.table.update_item_formula(self.row_widget.item, formula_str)
             if name != self.item.name:
                 # only update name
+                if name in self.items:
+                    print(f"Observable name {name} already exists!")
+                    return
                 self.row_widget.update_item_name(name)
             self.close()
         else:
