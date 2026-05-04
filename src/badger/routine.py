@@ -127,7 +127,8 @@ class Routine(Xopt):
             print(f"REVERSE: {reverse_map}")
             full_observables = list(expanded_names.values())
             selected_observables = [
-                expanded_names[output_name] for output_name in output_names + base_obs
+                expanded_names[output_name]
+                for output_name in set(output_names + base_obs)
             ]
             print(f"SELECTED OBSERVABLES: {selected_observables}")
 

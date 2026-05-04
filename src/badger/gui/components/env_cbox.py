@@ -26,7 +26,11 @@ from badger.gui.components.obj_table import ObjectiveTable
 from badger.gui.components.con_table import ConstraintTable
 from badger.gui.components.obs_table import ObservableTable
 from badger.gui.components.data_table import init_data_table
-from badger.gui.windows.formula_dialog import BadgerFormulaDialog, FormulaEdit
+from badger.gui.windows.formula_dialog import (
+    BadgerFormulaDialog,
+    FormulaEdit,
+    ObservableEdit,
+)
 from badger.settings import init_settings
 from badger.gui.utils import (
     MouseWheelWidgetAdjustmentGuard,
@@ -534,6 +538,7 @@ class BadgerEnvBox(QWidget):
             lambda: self.update_vocs("objectives_list_view")
         )
         self.objectives_list_view.formula_double_clicked.connect(self.edit_formula)
+        self.objectives_list_view.obs_double_clicked.connect(self.edit_obs)
 
     def update_vocs(self, origin: str):
         logger.debug(f"Emitting vocs_updated signal from env_cbox: {origin}")
@@ -645,6 +650,19 @@ class BadgerEnvBox(QWidget):
     def edit_formula(self, row_widget: ObjectiveRowWidget):
         print("edit formula:")
         dlg = FormulaEdit(
+            parent=self,
+            table=self.objectives_list_view,
+            row_widget=row_widget,
+        )
+        self.tc_dialog = dlg
+        try:
+            dlg.exec()
+        finally:
+            self.tc_dialog = None
+
+    def edit_obs(self, row_widget: ObjectiveRowWidget):
+        print("edit observable:")
+        dlg = ObservableEdit(
             parent=self,
             table=self.objectives_list_view,
             row_widget=row_widget,

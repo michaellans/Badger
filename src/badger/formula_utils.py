@@ -2,7 +2,6 @@ import re
 import ast
 import math
 import statistics
-import numpy as np
 from typing import Set, Dict, Any, Tuple
 
 _UNSAFE_MATH_FUNCS = {
@@ -148,9 +147,16 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
     stack = set()
 
     formulas = data.get("formulas", {}) or {}
+
     output_names = list(data["vocs"].output_names)
+    selected_formulas = {
+        sel_name: formulas[sel_name]
+        for sel_name in output_names
+        if sel_name in formulas
+    }
     base_observables = []  # keep trach of observables within formulas
-    print(f"start expanding formulas: {formulas}")
+    print(f"all formulas: {formulas}")
+    print(f"start expanding formulas: {selected_formulas}")
 
     def expand_node(node: Dict[str, Any]) -> str:
         print(f"expand node? {node}")
@@ -189,9 +195,9 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
             raise KeyError(f"Unknown formula name: {name!r}")
 
         stack.add(name)
-        print(f"formulas: {formulas}")
+        print(f"formulas: {selected_formulas}")
         print(f"node: {formulas[name]}")
-        out = expand_node(formulas[name])
+        out = expand_node(selected_formulas[name])
         stack.remove(name)
 
         cache[name] = out
@@ -199,8 +205,8 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
 
     forward = {}
 
-    for name in formulas:
-        if not formulas[name]["formula_str"]:
+    for name in selected_formulas:
+        if not selected_formulas[name]["formula_str"]:
             # using formulas to store user-added observables without formulas
             # if no formula_str treat it as not a formula for mapping.
             forward[name] = name

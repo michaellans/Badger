@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
     QTextEdit,
     QLineEdit,
     QCompleter,
+    QComboBox,
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QTextCursor
@@ -17,24 +18,8 @@ from badger.formula_utils import sanitize_for_validation, validate_formula
 from badger.gui.components.editable_table_2 import (
     ObjectivesListView,
     ObjectiveRowWidget,
+    Origin,
 )
-
-
-stylesheet_run = """
-QPushButton:hover:pressed
-{
-    background-color: #92D38C;
-}
-QPushButton:hover
-{
-    background-color: #6EC566;
-}
-QPushButton
-{
-    background-color: #4AB640;
-    color: #000000;
-}
-"""
 
 
 def _surround_with_backticks(string_list, text):
@@ -188,7 +173,7 @@ class BadgerFormulaDialog(QDialog):
         """
 
         self.setWindowTitle("Add formula")
-        self.setFixedWidth(360)
+        self.setMinimumWidth(360)
 
         root_vbox = QVBoxLayout(self)
 
@@ -198,7 +183,7 @@ class BadgerFormulaDialog(QDialog):
         header_hbox.setContentsMargins(0, 0, 0, 0)
 
         label = QLabel("test label info would be here")
-        label.setFixedWidth(360)
+        label.setMinimumWidth(360)
 
         header_hbox.addWidget(label)
 
@@ -210,31 +195,18 @@ class BadgerFormulaDialog(QDialog):
         self.help_widget = self.build_help_widget()
         self.help_widget.hide()
 
-        # Button set
-        button_set = QWidget()
-        hbox_set = QHBoxLayout(button_set)
-        hbox_set.setContentsMargins(0, 0, 0, 0)
-        self.btn_cancel = QPushButton("Cancel")
-        self.btn_add = QPushButton("Add")
-        self.btn_cancel.setFixedSize(96, 24)
-        self.btn_add.setFixedSize(96, 24)
-        hbox_set.addSpacing(114)
-        hbox_set.addWidget(self.btn_cancel)
-        hbox_set.addWidget(self.btn_add)
-        hbox_set.addStretch()
-
         hbox_content.addWidget(formula_widget)
         hbox_content.addWidget(self.help_widget)
 
         # vbox.addWidget(header)
         root_vbox.addWidget(content_widget)
-        root_vbox.addWidget(button_set)
+        # root_vbox.addWidget(button_set)
 
     def build_formula_input(self) -> QWidget:
         formula_widget = QWidget()
         formula_layout = QVBoxLayout(formula_widget)
         formula_layout.setContentsMargins(0, 0, 0, 0)
-        formula_widget.setFixedWidth(320)
+        formula_widget.setMinimumWidth(320)
 
         name_widget = QWidget()
         name_layout = QVBoxLayout(name_widget)
@@ -300,6 +272,19 @@ class BadgerFormulaDialog(QDialog):
         # completer.setFilterMode(Qt.MatchContains)  # match substring (optional)
         completer.setFilterMode(Qt.MatchStartsWith)  # default behavior
 
+        # Button set
+        button_set = QWidget()
+        hbox_set = QHBoxLayout(button_set)
+        hbox_set.setContentsMargins(0, 0, 0, 0)
+        self.btn_cancel = QPushButton("Cancel")
+        self.btn_add = QPushButton("Add")
+        self.btn_cancel.setFixedSize(96, 24)
+        self.btn_add.setFixedSize(96, 24)
+        hbox_set.addSpacing(114)
+        hbox_set.addWidget(self.btn_cancel)
+        hbox_set.addWidget(self.btn_add)
+        hbox_set.addStretch()
+
         self.formula_edit.setCompleter(completer)
         formula_edit_layout.addWidget(formula_label)
         formula_edit_layout.addWidget(self.formula_edit)
@@ -307,6 +292,7 @@ class BadgerFormulaDialog(QDialog):
         formula_layout.addWidget(name_widget)
         # formula_layout.addWidget(variable_widget)
         formula_layout.addWidget(formula_edit_widget)
+        formula_layout.addWidget(button_set)
 
         return formula_widget
 
@@ -354,11 +340,11 @@ class BadgerFormulaDialog(QDialog):
     def show_info_panel(self):
         if self.info_button.isChecked():
             self.info_button.setText("Hide Info < ")
-            self.setFixedWidth(590)
+            self.setMinuWidth(590)
             self.help_widget.setVisible(True)
         else:
             self.info_button.setText("Show Info >")
-            self.setFixedWidth(360)
+            self.setMinimumWidth(360)
             self.help_widget.setVisible(False)
 
     def construct_formula_str(self):
@@ -442,3 +428,173 @@ class FormulaEdit(BadgerFormulaDialog):
             self.close()
         else:
             print(f"invalid formula: {formula_str}")
+
+
+class ObservableEdit(QDialog):
+    """
+    Dialog for adding formula observable in Badger.
+    """
+
+    def __init__(
+        self,
+        parent: QWidget,
+        table: ObjectivesListView,
+        row_widget: ObjectiveRowWidget,
+    ):
+        """
+        Initialize the dialog.
+
+        """
+        super().__init__(parent)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+
+        self.table = table
+
+        self.items = self.table.items
+        self.variables = {}
+
+        self.row_widget = row_widget
+        self.item = item = row_widget.item
+
+        self.init_ui()
+
+        if not isinstance(row_widget, ObjectiveRowWidget):
+            raise ValueError("row_widget must be an instance of ObjectiveRowWidget")
+
+        if item:
+            self.name_edit.setText(item.name)
+        if item.origin != Origin.USER:
+            self.name_edit.setEnabled(False)
+
+        self.config_logic()
+
+    def config_logic(self) -> None:
+        self.btn_cancel.clicked.connect(self.cancel)
+        self.btn_add.clicked.connect(self.construct_formula_str)
+
+    def init_ui(self) -> None:
+        """
+        Initialize the user interface.
+        """
+
+        self.setWindowTitle("Observable")
+        self.setMinimumWidth(360)
+
+        root_vbox = QVBoxLayout(self)
+
+        # Header and labels
+        header = QWidget()
+        header_hbox = QHBoxLayout(header)
+        header_hbox.setContentsMargins(0, 0, 0, 0)
+
+        label = QLabel("test label info would be here")
+        label.setMinimumWidth(360)
+
+        header_hbox.addWidget(label)
+
+        content_widget = QWidget()
+        hbox_content = QHBoxLayout(content_widget)
+        hbox_content.setContentsMargins(0, 0, 0, 0)
+
+        formula_widget = self.build_formula_input()
+        hbox_content.addWidget(formula_widget)
+        root_vbox.addWidget(content_widget)
+
+    def build_formula_input(self) -> QWidget:
+        formula_widget = QWidget()
+        formula_layout = QVBoxLayout(formula_widget)
+        formula_layout.setContentsMargins(0, 0, 0, 0)
+        formula_widget.setMinimumWidth(320)
+
+        name_widget = QWidget()
+        name_layout = QVBoxLayout(name_widget)
+        name_layout.setContentsMargins(0, 0, 0, 0)
+
+        name_header = QWidget()
+        name_header_layout = QHBoxLayout(name_header)
+        name_header_layout.setContentsMargins(0, 0, 0, 0)
+
+        name_label = QLabel("Name: ")
+        name_label.setToolTip("This is what shows up on the GUI")
+
+        self.name_edit = QLineEdit()
+        self.name_edit.setPlaceholderText("Enter objective name")
+        self.name_edit.setFixedWidth(320)
+
+        name_header_layout.addWidget(name_label)
+        name_header_layout.addWidget(self.name_edit)
+        name_header_layout.addStretch()
+        name_layout.addWidget(name_header)
+
+        formula_edit_widget = QWidget()
+        formula_edit_layout = QHBoxLayout(formula_edit_widget)
+        formula_edit_layout.setContentsMargins(0, 0, 0, 0)
+        formula_label = QLabel("Statistic: ")
+
+        formula_edit_layout.addWidget(formula_label)
+
+        self.stat_combo = QComboBox()
+        self.stat_combo.addItems(
+            [
+                "none",
+                "mean",
+                "std",
+                "std_rel",
+                "p80",
+                "p75",
+                "median",
+                "p25",
+            ]
+        )
+
+        # print(f"ObjectiveRowWidget stat: {self.item.stat}")
+        self.stat_combo.setCurrentText(self.item.stat)
+        self.stat_combo.setFixedWidth(120)
+        formula_edit_layout.addWidget(self.stat_combo)
+        formula_edit_layout.addStretch()
+
+        # Button set
+        button_set = QWidget()
+        hbox_set = QHBoxLayout(button_set)
+        hbox_set.setContentsMargins(0, 0, 0, 0)
+        self.btn_cancel = QPushButton("Cancel")
+        self.btn_add = QPushButton("Set")
+        self.btn_cancel.setFixedSize(96, 24)
+        self.btn_add.setFixedSize(96, 24)
+        hbox_set.addSpacing(114)
+        hbox_set.addWidget(self.btn_cancel)
+        hbox_set.addWidget(self.btn_add)
+        hbox_set.addStretch()
+
+        formula_layout.addWidget(name_widget)
+        formula_layout.addWidget(formula_edit_widget)
+        formula_layout.addWidget(button_set)
+
+        return formula_widget
+
+    def _on_stat_changed(self):
+        """Update item when statistic selection changes."""
+        self.item.formula["stat"] = self.stat_combo.currentText()
+        self.item.stat = self.stat_combo.currentText()
+        print(f" select stat: {self.item.stat} for {self.item.name}")
+
+    def construct_formula_str(self):
+        name = self.name_edit.text()
+        stat = self.stat_combo.currentText()
+        print(f"name: {name}")
+        print(f"stat: {stat}")
+        print(f"item stat: {self.item.stat}")
+        if stat != self.item.stat:
+            # update stat
+            self._on_stat_changed()
+        if name != self.item.name:
+            # only update name
+            if name in self.items:
+                print(f"Observable name {name} already exists!")
+                return
+            self.row_widget.update_item_name(name)
+
+        self.close()
+
+    def cancel(self):
+        self.close()

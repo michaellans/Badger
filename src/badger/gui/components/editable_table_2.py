@@ -26,12 +26,22 @@ class FormulaNameLabel(QLineEdit):
     """Custom QLineEdit that emits a signal on double-click."""
 
     double_clicked = pyqtSignal()
+    # mouse_enter = pyqtSignal()
+    # mouse_leave = pyqtSignal()
 
     def mouseDoubleClickEvent(self, event):
         """Override to emit signal on double-click."""
         self.double_clicked.emit()
 
         super().mouseDoubleClickEvent(event)
+
+    # def enterEvent(self, event):
+    #    self.mouse_enter.emit()
+    #    super().enterEvent(event)
+
+    # def leaveEvent(self, event):
+    #    self.mouse_leave.emit()
+    #    super().leaveEvent(event)
 
 
 class Origin(Enum):
@@ -113,10 +123,11 @@ class ObjectiveRowWidget(QWidget):
     """A custom widget representing a single objective row with checkbox, name, and rule combobox."""
 
     item_renamed = pyqtSignal(str, str)  # Emits (old_name, new_name)
-    formula_updated = pyqtSignal(str, ObservableItem)  # Emits (new_formula_str)
+    formula_updated = pyqtSignal(str, ObservableItem)  # Emits (new_formula_str, item)
     formula_double_clicked = pyqtSignal(
         QWidget
     )  # Emitted when formula name is double-clicked
+    obs_double_clicked = pyqtSignal(QWidget)
 
     def __init__(self, objective_item: ObjectiveItem, row_index: int, parent=None):
         super().__init__(parent)
@@ -145,32 +156,24 @@ class ObjectiveRowWidget(QWidget):
         # Name input field
         self.name_input = FormulaNameLabel(self.item.name)
         self.name_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.name_input.setMaximumWidth(230)
+        # self.name_input.setFixedWidth(230)
         self.name_input.setCursorPosition(0)
-        if self.item.formula["formula_str"] or not self.item.origin == Origin.USER:
-            self.name_input.setReadOnly(True)
+        # if self.item.formula["formula_str"] or not self.item.origin == Origin.USER:
+        self.name_input.setReadOnly(True)  # Edit by double-clicking
+
         # self.name_input.setFocusPolicy(Qt.NoFocus)
 
         # if not self.item.formula["formula_str"]:
         #    self.name_input.setReadOnly(True)
 
-        # Disable editing if this is not a formula item
-        # if not self.item.formula["formula_str"]:
-        #    self.name_input.setStyleSheet("""
-        #        border-radius: 0px;
-        #        border: 1px solid transparent;
-        #        padding: 0px;
-        #    """)
-        # else:
-        #    self.name_input.setStyleSheet("""
-        #        border: 1px solid transparent;
-        #        border-radius: 0px;
-        #    """)
-
-        # if self.item.formula["formula_str"]:
-        #    self.name_input.setReadOnly(False)
-
         layout.addWidget(self.name_input)
+
+        # if not self.item.formula["formula_str"]:
+        #    self.indicator = QLabel("*")
+        #    self.indicator.hide()
+        #    # self.indicator.
+        #    layout.addWidget(self.indicator)
+        # layout.addStretch(stretch=0)
 
         # Rule combobox
         self.rule_combo = QComboBox()
@@ -181,6 +184,7 @@ class ObjectiveRowWidget(QWidget):
 
         # !--
         # statistic combobox
+        # Not implemented
         self.stat_combo = QComboBox()
         self.stat_combo.addItems(
             [
@@ -197,7 +201,7 @@ class ObjectiveRowWidget(QWidget):
         # print(f"ObjectiveRowWidget stat: {self.item.stat}")
         self.stat_combo.setCurrentText(self.item.stat)
         self.stat_combo.setFixedWidth(120)
-        layout.addWidget(self.stat_combo)
+        # layout.addWidget(self.stat_combo) # Don't add stat combo to GUI
         # --!
 
     def _apply_style(self):
@@ -208,45 +212,59 @@ class ObjectiveRowWidget(QWidget):
             self.setStyleSheet("background-color: #262E38;")
 
         if self.item.formula["formula_str"]:
-            # need to distinguish between formulas and new non-formula vars, or have a separate flag
-            # for new variables?
-            # border: 1px solid #356792;
+            # styling for formula items
             self.name_input.setStyleSheet("""
                 QLineEdit {
                     color: LightSeaGreen;
-                    border: 1px solid transparent;                 
+                    border: 1px solid transparent;
+                }
+
+                QLabel:hover {
+                    color: #00CCCC
                 }
 
                 QLineEdit:hover {
-                    
                     border: 1px solid DarkCyan;
                 }
-                                          
-                
+
                 """)
-            self._update_tooltip()
-        elif self.item.origin == Origin.USER:
-            self.name_input.setStyleSheet("""
-                QLineEdit {                        
-                    color: darkGray;
 
-                    border: 1px solid transparent;
-
-                }
-                                          
-                Label:hover {
-                    
-                    color: LightSeaGreen;
-                    border: 1px solid LightSeaGreen;
-                }
-            """)
         else:
-            # Read-only items should not respond to hover or clicks
+            # Styling for non-formula observables
             self.name_input.setStyleSheet("""
-                border: 1px solid transparent;
-                padding: 0px;
-            """)
+                QLineEdit {
+                    color: lightGray;
+                    border: 1px solid transparent;
+                }
 
+                QLabel:hover {
+                    color: #E8E8E8;
+                }
+
+                QLineEdit:hover {
+                    border: 1px solid Gray;
+                }
+            """)
+            if self.item.origin == Origin.USER:
+                self.name_input.setStyleSheet("""
+                    QLineEdit {
+                        color: darkGray;
+                        border: 1px solid transparent;
+                    }
+
+                    QLabel:hover {
+                        color: lightGray;
+                    }
+
+                    QLineEdit:hover {
+                        border: 1px solid Gray;
+                    }
+                """)
+            # alternative styling with '*' indicator
+            # if hasattr(self, "indicator"):
+            #    self.name_input.mouse_enter.connect(lambda: self.indicator.show())
+            #    self.name_input.mouse_leave.connect(lambda: self.indicator.hide())
+        self._update_tooltip()
         if self.item.formula["formula_str"]:
             self.stat_combo.setEditable(True)
             self.stat_combo.setCurrentText("formula")
@@ -259,8 +277,8 @@ class ObjectiveRowWidget(QWidget):
         """Update the tooltip to display the formula_str."""
         if self.item.formula["formula_str"]:
             self.name_input.setToolTip(f"Formula: {self.item.formula['formula_str']}")
-        else:
-            self.name_input.setToolTip("")
+        elif self.item.stat:
+            self.name_input.setToolTip(f"Statistic: {self.item.stat}")
 
     def update_formula_tooltip(self):
         """Public method to update the tooltip when formulas change."""
@@ -277,6 +295,10 @@ class ObjectiveRowWidget(QWidget):
         if self.item.formula["formula_str"]:
             self.name_input.double_clicked.connect(
                 lambda: self.formula_double_clicked.emit(self)
+            )
+        else:  # if self.item.origin == Origin.USER:
+            self.name_input.double_clicked.connect(
+                lambda: self.obs_double_clicked.emit(self)
             )
 
     def _on_checkbox_changed(self):
@@ -466,6 +488,7 @@ class ObjectivesListView(QScrollArea):
 
     data_changed = pyqtSignal()  # Signal to indicate that data has changed
     formula_double_clicked = pyqtSignal(ObjectiveRowWidget)
+    obs_double_clicked = pyqtSignal(ObjectiveRowWidget)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -480,7 +503,7 @@ class ObjectivesListView(QScrollArea):
         main_layout.setSpacing(0)
 
         # Add header
-        self.header = HeaderWidget(additional_columns=["Rule", "Statistic"])
+        self.header = HeaderWidget(additional_columns=["Rule"])  # , "Statistic"])
         main_layout.addWidget(self.header)
 
         # Container widget to hold all row widgets
@@ -584,6 +607,7 @@ class ObjectivesListView(QScrollArea):
         for widget in self.row_widgets:
             widget.item_renamed.disconnect()
             widget.formula_double_clicked.disconnect()
+            widget.obs_double_clicked.disconnect()
             widget.deleteLater()
         self.row_widgets.clear()
 
@@ -612,6 +636,7 @@ class ObjectivesListView(QScrollArea):
                 row_widget.formula_double_clicked.connect(
                     self.formula_double_clicked.emit
                 )
+                row_widget.obs_double_clicked.connect(self.obs_double_clicked.emit)
                 self.row_widgets.append(row_widget)
                 self.container_layout.addWidget(row_widget)
                 row_index += 1
@@ -788,7 +813,6 @@ class ObjectivesListView(QScrollArea):
         # self.update_vocs()
 
     def get_variable_mapping(self, formula_str: str) -> dict[str, str]:
-
         matches = self.check_for_var_references(formula_str)  # find variable references
         # matches is a list of variable name strings
         print(f"get_variable_mapping: matches: {matches}")
@@ -847,10 +871,10 @@ class ObjectivesListView(QScrollArea):
 
         pat = re.compile(
             rf"""
-            
+
             (?:(?<=^)|(?<={left_sep})) # start OR preceded by left_sep
             (?:{alts})                           # match name
-            
+
             (?![.(])                             # not followed by . or (
             (?=$|{right_sep})               # end OR right_sep or "**" after
             """,
