@@ -489,7 +489,7 @@ class BadgerRoutinePage(QWidget):
             formulas.keys()
         )
         for name in objectives_names_full:
-            obj = {name: self.env_box.obj_table.default_info()}
+            obj = {name: self.env_box.objectives_list_view.default_info()}
             status[name] = False  # selected
             objectives.append(obj)
         for name, val in vocs.objectives.items():
@@ -508,9 +508,9 @@ class BadgerRoutinePage(QWidget):
         self.env_box.check_only_obj.blockSignals(True)
         self.env_box.check_only_obj.setChecked(True)
         self.env_box.check_only_obj.blockSignals(False)
-        self.env_box.obj_table.show_selected_only = True
+        self.env_box.objectives_list_view.show_selected_only = True
 
-        # self.env_box.obj_table.update_items(objectives, status, formulas)
+        self.env_box.objectives_list_view.update_items(objectives, status, formulas)
 
         # set constraints
         # Initialize the constraints table with env observables
@@ -617,7 +617,7 @@ class BadgerRoutinePage(QWidget):
             "vrange_limit_options": self.ratio_var_ranges,
             "vrange_hard_limit": self.var_hard_limit,
             "additional_variables": self.env_box.var_table.addtl_vars,
-            "formulas": self.env_box.obj_table.formulas,
+            "formulas": self.env_box.objectives_list_view.formulas,
             "constraint_formulas": self.env_box.con_table.formulas,
             "observable_formulas": self.env_box.sta_table.formulas,
             "initial_point_actions": self.init_table_actions,
@@ -929,7 +929,7 @@ class BadgerRoutinePage(QWidget):
             formulas.keys()
         )
         for name in constraints_names_full:
-            cons = {name: self.env_box.con_table.default_info()}
+            cons = {name: ["<", 0.0, False]}
             status[name] = False  # selected
             constraints.append(cons)
         for name, val in routine.vocs.constraints.items():
@@ -974,7 +974,7 @@ class BadgerRoutinePage(QWidget):
             var_names + list(self.configs["observations"]) + list(formulas.keys())
         )
         for name in observables_names_full:
-            obs = {name: {}}
+            obs = {name: []}
             status[name] = False  # selected
             observables.append(obs)
         for name in routine.vocs.observables:
@@ -1240,7 +1240,7 @@ class BadgerRoutinePage(QWidget):
         constraints = []
         status = {}
         for name in self.configs["observations"]:
-            cons = {name: self.env_box.con_table.default_info()}
+            cons = {name: ["<", 0.0, False]}
             status[name] = False  # selected
             constraints.append(cons)
         self.env_box.check_only_con.blockSignals(True)
@@ -1248,7 +1248,9 @@ class BadgerRoutinePage(QWidget):
         self.env_box.check_only_con.blockSignals(False)
         self.env_box.con_table.show_selected_only = False
         # with BlockSignalsContext(self.env_box.con_table):
-        self.env_box.con_table.update_items(constraints, status, vocs_signal=False)
+        self.env_box.con_table.update_items(
+            constraints, status, formulas={}, vocs_signal=False
+        )
 
         # Initialize the observable table with env variables and observables
         observables = []
@@ -1260,7 +1262,7 @@ class BadgerRoutinePage(QWidget):
             var_names = []
 
         for name in var_names + list(self.configs["observations"]):
-            obs = {name: {}}
+            obs = {name: []}
             status[name] = False  # selected
             observables.append(obs)
         self.env_box.check_only_sta.blockSignals(True)

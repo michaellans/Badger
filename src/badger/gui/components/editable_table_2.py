@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QMessageBox,
 )
 from PyQt5.QtCore import pyqtSignal
-from typing import Any, Optional, Tuple
+from typing import Any
 import re
 from enum import Enum, auto
 
@@ -116,38 +116,6 @@ class ConstraintItem(ObservableItem):
     relation: str = "<"
     threshold: float = 0.0
     critical: bool = False
-
-
-# Regex pattern for decomposing wrapped statistics
-# Matches any of:
-# mean(`x`), std(`x`), percentile(`x`,80/75/50/25), std(`x`)/mean(`x`)
-_PATTERNS = [
-    ("mean", re.compile(r"^\s*mean\s*\(\s*`(?P<var>[^`]+)`\s*\)\s*$", re.I)),
-    ("std", re.compile(r"^\s*std\s*\(\s*`(?P<var>[^`]+)`\s*\)\s*$", re.I)),
-    (
-        "p80",
-        re.compile(r"^\s*percentile\s*\(\s*`(?P<var>[^`]+)`\s*,\s*80\s*\)\s*$", re.I),
-    ),
-    (
-        "p75",
-        re.compile(r"^\s*percentile\s*\(\s*`(?P<var>[^`]+)`\s*,\s*75\s*\)\s*$", re.I),
-    ),
-    (
-        "p25",
-        re.compile(r"^\s*percentile\s*\(\s*`(?P<var>[^`]+)`\s*,\s*25\s*\)\s*$", re.I),
-    ),
-    (
-        "median",
-        re.compile(r"^\s*percentile\s*\(\s*`(?P<var>[^`]+)`\s*,\s*50\s*\)\s*$", re.I),
-    ),
-    (
-        "std_rel",
-        re.compile(
-            r"^\s*std\s*\(\s*`(?P<var>[^`]+)`\s*\)\s*/\s*mean\s*\(\s*`(?P=var)`\s*\)\s*$",
-            re.I,
-        ),
-    ),
-]
 
 
 class ObjectiveRowWidget(QWidget):
@@ -325,19 +293,6 @@ class ObjectiveRowWidget(QWidget):
     def _on_rule_changed(self):
         """Update item when rule selection changes."""
         self.item.rule = self.rule_combo.currentText()
-
-    def _parse_stat_formula(self, expr: str) -> Optional[Tuple[str, str]]:
-        """
-        Returns (stat_key, variable_name) if expr matches one of the supported formulas,
-        else None.
-        """
-        # No longer used this happens in routine_page
-        # need to test, could then remove _PATTERNS from this
-        for key, rx in _PATTERNS:
-            m = rx.match(expr)
-            if m:
-                return key, m.group("var")
-        return None
 
     def update_item_name(self, new_name: str):
         """

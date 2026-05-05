@@ -125,7 +125,7 @@ class Routine(Xopt):
             # for the environment. This will expand any formulas in terms of base
             # observables, and map them back to the original name. Also includes
             # a list of base_obs, so that the observables within any formulas will
-            # be included in the stored data.
+            # be included in the recorded data.
             expanded_names, reverse_map, base_obs = expanded_formula_mapping(data)
             selected_observables = [
                 expanded_names[output_name]
