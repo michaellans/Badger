@@ -636,7 +636,6 @@ class BadgerEnvBox(QWidget):
         self.setStyleSheet(stylesheet)
 
     def add_formula(self):
-        print("add formula button pressed")
         dlg = BadgerFormulaDialog(
             parent=self,
             table=self.objectives_list_view,
@@ -648,7 +647,6 @@ class BadgerEnvBox(QWidget):
             self.tc_dialog = None
 
     def edit_formula(self, row_widget: ObjectiveRowWidget):
-        print("edit formula:")
         dlg = FormulaEdit(
             parent=self,
             table=self.objectives_list_view,
@@ -661,7 +659,6 @@ class BadgerEnvBox(QWidget):
             self.tc_dialog = None
 
     def edit_obs(self, row_widget: ObjectiveRowWidget):
-        print("edit observable:")
         dlg = ObservableEdit(
             parent=self,
             table=self.objectives_list_view,
@@ -687,7 +684,6 @@ class BadgerEnvBox(QWidget):
 
         if operation in stats_mapping:
             new_obj_name = stats_mapping[operation](obj_name)
-            print(new_obj_name)
             return new_obj_name
 
     def compose_vocs(self) -> tuple[VOCS, list[str]]:
@@ -727,9 +723,6 @@ class BadgerEnvBox(QWidget):
                 constraints=constraints,
                 constants={},
                 observables=observables,
-            )
-            print(
-                f"VOCS composed in env_cbox: variables={list(vocs.variables.keys())}, objectives={list(vocs.objectives.keys())}, constraints={list(vocs.constraints.keys())}, observables={vocs.observables}"
             )
         except ValidationError as e:
             raise BadgerRoutineError(

@@ -26,28 +26,22 @@ class FormulaNameLabel(QLineEdit):
     """Custom QLineEdit that emits a signal on double-click."""
 
     double_clicked = pyqtSignal()
-    # mouse_enter = pyqtSignal()
-    # mouse_leave = pyqtSignal()
 
     def mouseDoubleClickEvent(self, event):
         """Override to emit signal on double-click."""
         self.double_clicked.emit()
 
-        super().mouseDoubleClickEvent(event)
-
-    # def enterEvent(self, event):
-    #    self.mouse_enter.emit()
-    #    super().enterEvent(event)
-
-    # def leaveEvent(self, event):
-    #    self.mouse_leave.emit()
-    #    super().leaveEvent(event)
+        # propagating signal can lead to unexpected UI behavior
+        # super().mouseDoubleClickEvent(event)
 
 
 class Origin(Enum):
     """
     Enum class for identifying observable origin as
     defined in environment or user added.
+
+    This makes it easy to differentiate behavior if desired,
+    for example making user-added observables editable
     """
 
     ENVIRONMENT = auto()
@@ -56,12 +50,33 @@ class Origin(Enum):
 
 @dataclass
 class ObservableItem:
+    """
+    Represents a Badger Observable item row in the table.
+
+    An ObservableItem encapsulates the data displayed for each observable
+    (subclassed as objective and constraint) on the GUI, including
+    its checked state, name, origin, optional formula for calculations, and optional
+    statistics operator.
+
+    Attributes:
+        checked (bool): Whether the item is currently selected.
+        name (str): The display name of the observable item.
+        origin (Origin): The source of the observable item, either ENVIRONMENT or USER.
+            Defaults to Origin.ENVIRONMENT.
+        formula (dict[str, Any]): A dictionary containing formula specifications with:
+            - "formula_str" (str): The formula expression as a string
+            - "variable_mapping" (dict): Mapping of variables used in the formula
+            Defaults to an empty formula with no variables.
+        stat (str): The statistical method to apply (e.g., "mean", "sum", "max") to
+            apply if the observable data is expected as an array.
+            Defaults to "none" indicating no aggregation.
+    """
+
     checked: bool
     name: str
 
-    origin: Origin = Origin.ENVIRONMENT  # default environment
-    is_formula: bool = False
-    rename_allowed: bool = False
+    # identify whether defined in environment or by user
+    origin: Origin = Origin.ENVIRONMENT  # default to environment
 
     formula: dict[str, Any] = field(
         default_factory=lambda: {"formula_str": "", "variable_mapping": {}}
@@ -74,6 +89,11 @@ class ObjectiveItem(ObservableItem):
     """
     Dataclass to represent an objective row.
 
+    Inherits from ObservableItem.
+
+    Attributes:
+        - rule (str): MINIMIZE or MAXIMIZE, direction of optimization
+
     """
 
     rule: str = "MINIMIZE"
@@ -81,13 +101,24 @@ class ObjectiveItem(ObservableItem):
 
 @dataclass
 class ConstraintItem(ObservableItem):
-    """Dataclass to represent a constraint row."""
+    """
+    Dataclass to represent a constraint row.
+
+    Inherits from ObservableItem
+
+    Attributes:
+        - relation (str): option from ["<",">"]
+        - threshold (float): value for comparison
+        - ciritical (bool): whether to mark this as a critical constraint
+
+    """
 
     relation: str = "<"
     threshold: float = 0.0
     critical: bool = False
 
 
+# Regex pattern for decomposing wrapped statistics
 # Matches any of:
 # mean(`x`), std(`x`), percentile(`x`,80/75/50/25), std(`x`)/mean(`x`)
 _PATTERNS = [
@@ -120,10 +151,19 @@ _PATTERNS = [
 
 
 class ObjectiveRowWidget(QWidget):
-    """A custom widget representing a single objective row with checkbox, name, and rule combobox."""
+    """
+    A widget for representing a single objective row with checkbox, name, and rule combobox.
+
+    The ObjectiveRowWidget is the UI representaiton of the objective table rows. It uses
+    an ObjectiveItem self.item to store the data, updates the ObjetiveItem when the user
+    interacts with the UI, and updates the UI when the ObjectiveItem is modified.
+
+    """
 
     item_renamed = pyqtSignal(str, str)  # Emits (old_name, new_name)
-    formula_updated = pyqtSignal(str, ObservableItem)  # Emits (new_formula_str, item)
+    formula_updated = pyqtSignal(
+        str, ObservableItem
+    )  # Emits (new_formula_str, ObservableItem)
     formula_double_clicked = pyqtSignal(
         QWidget
     )  # Emitted when formula name is double-clicked
@@ -131,10 +171,11 @@ class ObjectiveRowWidget(QWidget):
 
     def __init__(self, objective_item: ObjectiveItem, row_index: int, parent=None):
         super().__init__(parent)
-        self.item = objective_item
-        # print(f"Creating ObjectiveRowWidget for item: {self.item.name}, stat: {self.item.stat}")
+        self.item = objective_item  # ObjectiveItem containing
         self.row_index = row_index
-        self.stats_enabled: bool = False # disable stats by default for better backwards compatibility
+        # disable stats by default for better backwards compatibility
+        self.stats_enabled: bool = False
+
         self._init_ui()
         self._connect_signals()
         self._apply_style()
@@ -144,11 +185,9 @@ class ObjectiveRowWidget(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(4, 1, 1, 4)
         layout.setSpacing(1)
-        self.setStyleSheet("""
-            border-radius: 0px;
-        """)
+        self.setStyleSheet("border-radius: 0px;")
 
-        # Checkbox
+        # Checkbox (for selecting objective)
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(self.item.checked)
         self.checkbox.setFixedWidth(20)
@@ -157,24 +196,9 @@ class ObjectiveRowWidget(QWidget):
         # Name input field
         self.name_input = FormulaNameLabel(self.item.name)
         self.name_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        # self.name_input.setFixedWidth(230)
         self.name_input.setCursorPosition(0)
-        # if self.item.formula["formula_str"] or not self.item.origin == Origin.USER:
-        self.name_input.setReadOnly(True)  # Edit by double-clicking
-
-        # self.name_input.setFocusPolicy(Qt.NoFocus)
-
-        # if not self.item.formula["formula_str"]:
-        #    self.name_input.setReadOnly(True)
-
+        self.name_input.setReadOnly(True)
         layout.addWidget(self.name_input)
-
-        # if not self.item.formula["formula_str"]:
-        #    self.indicator = QLabel("*")
-        #    self.indicator.hide()
-        #    # self.indicator.
-        #    layout.addWidget(self.indicator)
-        # layout.addStretch(stretch=0)
 
         # Rule combobox
         self.rule_combo = QComboBox()
@@ -183,35 +207,30 @@ class ObjectiveRowWidget(QWidget):
         self.rule_combo.setFixedWidth(120)
         layout.addWidget(self.rule_combo)
 
-        # !--
         # statistic combobox
-        # Not implemented
-        self.stat_combo = QComboBox()
-        self.stat_combo.addItems(
-            [
-                "none",
-                "mean",
-                "std",
-                "std_rel",
-                "p80",
-                "p75",
-                "median",
-                "p25",
-            ]
-        )
-        # print(f"ObjectiveRowWidget stat: {self.item.stat}")
-        self.stat_combo.setCurrentText(self.item.stat)
-        self.stat_combo.setFixedWidth(120)
+        # self.stat_combo = QComboBox()
+        # self.stat_combo.addItems(
+        #    ["none","mean","std","std_rel","p80","p75","median","p25"]
+        # )
+        # self.stat_combo.setCurrentText(self.item.stat)
+        # self.stat_combo.setFixedWidth(120)
         # layout.addWidget(self.stat_combo) # Don't add stat combo to GUI
-        # --!
 
     def _apply_style(self):
-        """Apply alternating row colors."""
+        """
+        Apply alternating row colors to the table background.
+
+        Also sets stylesheet for the QLineEdit depending on
+        whether the item is a formula, user-added observable,
+        or environment observable.
+        """
+        # set background row color
         if self.row_index % 2 == 0:
             self.setStyleSheet("alternate-background-color: #262E38;")
         else:
             self.setStyleSheet("background-color: #262E38;")
 
+        # set QLineEdit stylesheet
         if self.item.formula["formula_str"]:
             # styling for formula items
             self.name_input.setStyleSheet("""
@@ -219,13 +238,10 @@ class ObjectiveRowWidget(QWidget):
                     color: LightSeaGreen;
                     border: 1px solid transparent;
                 }
-
                 QLineEdit:hover {
                     border: 1px solid DarkCyan;
                 }
-
                 """)
-
         elif not self.stats_enabled:
             # if stats disabled, don't show indicator on mouse hover
             self.name_input.setStyleSheet("""
@@ -248,11 +264,6 @@ class ObjectiveRowWidget(QWidget):
                     color: lightGray;
                     border: 1px solid transparent;
                 }
-
-                QLabel:hover {
-                    color: #E8E8E8;
-                }
-
                 QLineEdit:hover {
                     border: 1px solid Gray;
                 }
@@ -263,41 +274,29 @@ class ObjectiveRowWidget(QWidget):
                         color: darkGray;
                         border: 1px solid transparent;
                     }
-
-                    QLabel:hover {
-                        color: lightGray;
-                    }
-
                     QLineEdit:hover {
                         border: 1px solid Gray;
                     }
                 """)
-            # alternative styling with '*' indicator
-            # if hasattr(self, "indicator"):
-            #    self.name_input.mouse_enter.connect(lambda: self.indicator.show())
-            #    self.name_input.mouse_leave.connect(lambda: self.indicator.hide())
-        self._update_tooltip()
-        if self.item.formula["formula_str"]:
-            self.stat_combo.setEditable(True)
-            self.stat_combo.setCurrentText("formula")
-            self.stat_combo.setEnabled(
-                False
-            )  # disable stat selection for formula items
-            # self.name_input.setStyleSheet("color: LightSeaGreen;")
 
-    def _update_tooltip(self):
-        """Update the tooltip to display the formula_str."""
+        self.update_tooltip()
+
+    def update_tooltip(self):
+        """Update the tooltip to display the  current formula or statistic"""
         if self.item.formula["formula_str"]:
             self.name_input.setToolTip(f"Formula: {self.item.formula['formula_str']}")
         elif self.item.stat and self.stats_enabled:
             self.name_input.setToolTip(f"Statistic: {self.item.stat}")
 
-    def update_formula_tooltip(self):
-        """Public method to update the tooltip when formulas change."""
-        self._update_tooltip()
-
     def enable_statistics(self):
-        """enable statistics and reapply stylesheet"""
+        """
+        Call this function to enable statistics.
+
+        This feature is disabled by default.
+        If enabled supports defining 'plain' observables in the environment, which are
+        expected to be either arrays or single datapoints, and choosing how
+        that data is processed in the GUI.
+        """
         self.stats_enabled = True
         self._apply_style()
 
@@ -305,10 +304,11 @@ class ObjectiveRowWidget(QWidget):
         """Connect UI signals to data updates."""
         self.checkbox.stateChanged.connect(self._on_checkbox_changed)
         self.rule_combo.currentTextChanged.connect(self._on_rule_changed)
-        self.stat_combo.currentTextChanged.connect(self._on_stat_changed)
+        # self.stat_combo.currentTextChanged.connect(self._on_stat_changed)
+        # currently name_input is disabled, name is edited from edit popup
         self.name_input.returnPressed.connect(self._on_name_changed)
         self.name_input.editingFinished.connect(self._on_name_changed)  # on focus loss
-        # Only connect double-click signal if this is a formula item
+
         if self.item.formula["formula_str"]:
             self.name_input.double_clicked.connect(
                 lambda: self.formula_double_clicked.emit(self)
@@ -326,37 +326,13 @@ class ObjectiveRowWidget(QWidget):
         """Update item when rule selection changes."""
         self.item.rule = self.rule_combo.currentText()
 
-    def _on_stat_changed(self):
-        """Update item when statistic selection changes."""
-        self.item.formula["stat"] = self.stat_combo.currentText()
-        self.item.stat = self.stat_combo.currentText()
-        print(f" select stat: {self.item.stat} for {self.item.name}")
-
-    def _construct_obs_func_str(self, operation: str, obj_name: str):
-        print(
-            f"Constructing observable function string for operation: {operation}, object: {obj_name}"
-        )
-        stats_mapping = {
-            "mean": lambda x: f"mean(`{x}`)",
-            "std": lambda x: f"std(`{x}`)",
-            "p80": lambda x: f"percentile(`{x}`,80)",
-            "p75": lambda x: f"percentile(`{x}`,75)",
-            "p25": lambda x: f"percentile(`{x}`,25)",
-            "median": lambda x: f"percentile(`{x}`,50)",
-            "std_rel": lambda x: f"std(`{x}`)/mean(`{x}`)",
-        }
-
-        if operation in stats_mapping:
-            new_obj_name = stats_mapping[operation](obj_name)
-            print(f"Constructed new observable function string: {new_obj_name}")
-            return new_obj_name
-        # pass
-
     def _parse_stat_formula(self, expr: str) -> Optional[Tuple[str, str]]:
         """
         Returns (stat_key, variable_name) if expr matches one of the supported formulas,
         else None.
         """
+        # No longer used this happens in routine_page
+        # need to test, could then remove _PATTERNS from this
         for key, rx in _PATTERNS:
             m = rx.match(expr)
             if m:
@@ -382,8 +358,6 @@ class ObjectiveRowWidget(QWidget):
         """
         old_name = self.item.name
         new_name = self.name_input.text()
-
-        print(f"change name: {old_name} -> {new_name}")
 
         if old_name != new_name:
             self.item.name = new_name
@@ -501,7 +475,10 @@ class HeaderWidget(QWidget):
 
 
 class ObjectivesListView(QScrollArea):
-    """A scrollable list view for displaying objectives as row widgets with filtering support."""
+    """
+    A scrollable list view for displaying objectives as row widgets, with filtering support.
+
+    """
 
     data_changed = pyqtSignal()  # Signal to indicate that data has changed
     formula_double_clicked = pyqtSignal(ObjectiveRowWidget)
@@ -542,7 +519,6 @@ class ObjectivesListView(QScrollArea):
 
         # Store all items
         self._all_items: list[ObjectiveItem] = []
-        # self._additional_observables: list[ObservableItem] = [] # keep track of new
 
         # Store currently displayed row widgets
         self.row_widgets: list[ObjectiveRowWidget] = []
@@ -560,7 +536,10 @@ class ObjectivesListView(QScrollArea):
         self.stats_enabled = False
 
     def enable_statistics(self):
-        print("enable statistics")
+        """
+        flag to enable stats function (remains disabled by default
+        unless called)
+        """
         self.stats_enabled = True
 
     def update_items(
@@ -571,28 +550,34 @@ class ObjectivesListView(QScrollArea):
         vocs_signal: bool = False,
         env_observables: list[str] = [],
     ) -> None:
-        """Update the list with objectives data.
+        """
+        Repopulate the list with new objectives data.
+        This will clear the table and update all items
+        to match the specified objectives and formulas.
 
         Parameters
         ----------
-        objectives : dict
-            Dictionary with form {name: [rule]}
+        objectives : list
+            list of objecitves specified as a dictionary with expected keys
+            'name' and 'rule_list'. "name" is expected as a string, "rule_list'
+            is expected as a list with the first item the 'rule' ("MINIMIZE" or
+            "MAXIMIZE") and the second (optional) index a statistic.
         status : dict
-            Status information for each objective
+            Status information for each objective, whether it is selected or not
+        formulas : dict:
+            Dictionary of formulas
         vocs_signal : bool
             Whether to emit a signal (not used currently)
+        env_observables : List[str]
+            List of which observables are defined in the environment, to differentiate
+            user-added observables
         """
         # Clear all items
         self._all_items.clear()
-        print("UPDATING OBJECTIVES LIST VIEW")
-
-        print(f"-- {env_observables}, {objectives}")
 
         # Create new items from objectives
         for objective in objectives:
-            print(f"...   objective: {objective}")
             for name, rule_list in objective.items():
-                print(f"...   name: {name}, rule_list: {rule_list}")
                 rule = rule_list[0] if rule_list else "MINIMIZE"
                 stat = rule_list[1] if len(rule_list) > 1 else "none"
                 item = ObjectiveItem(
@@ -615,8 +600,8 @@ class ObjectivesListView(QScrollArea):
                         self.items[name].formula["variable_mapping"] = {}
 
                 else:
-                    # If formula name is not in items, add it as a new item
-                    print("HMM I DON'T THINK THIS SHOULD PRINT")
+                    # If formula name is not in items
+                    logger.warning("Name not found in items")
 
         # Rebuild view with current filters
         self._rebuild_view()
@@ -626,12 +611,14 @@ class ObjectivesListView(QScrollArea):
 
     def _rebuild_view(self) -> None:
         """Rebuild the visible row widgets based on current filters."""
-        print("Rebuilding objectives list view...")
         # Clear existing displayed widgets
         for widget in self.row_widgets:
             widget.item_renamed.disconnect()
             widget.formula_double_clicked.disconnect()
-            widget.obs_double_clicked.disconnect()
+            try:
+                widget.obs_double_clicked.disconnect()
+            except TypeError:  # no signals connected
+                pass
             widget.deleteLater()
         self.row_widgets.clear()
 
@@ -732,8 +719,8 @@ class ObjectivesListView(QScrollArea):
 
     def export_data(self):
         selected_items = self.get_selected_items()
-        print(
-            f"Exporting data for selected items: {[item.name for item in selected_items]}"
+        logger.info(
+            f"Exporting data for selected items from table: {[item.name for item in selected_items]}"
         )
         return [
             {item.name: {"rule": item.rule, "stat": item.stat}}
@@ -781,7 +768,8 @@ class ObjectivesListView(QScrollArea):
     def add_item(
         self, name: str, formula_str: str = None, checked: bool = False
     ) -> None:
-        """Add a new observable item to the list. This is called
+        """
+        Add a new observable item to the list. This is called
         either by formula dialog (add formula, with formula_str)
         or by adding a new observable from the new item line.
 
@@ -789,13 +777,17 @@ class ObjectivesListView(QScrollArea):
         ----------
         name : str
             The name of the new observable.
+        formula_str: str
+            (optional) formula string
+        checked: bool
+            Whether the item should be selected
         """
         if name in self.item_names:
             # If an item with the same name already exists, show a warning and do not add
             self.show_duplicate_warning(name)
             return
 
-        # check for duplicate formulas
+        # check for duplicate names as formulas
         if name in self.formula_strs:
             self.show_duplicate_warning(name)
             return
@@ -804,10 +796,6 @@ class ObjectivesListView(QScrollArea):
         if formula_str in self.formula_strs:
             self.show_duplicate_warning(formula_str)
             return
-
-        print(
-            f"ObjectivesListView add_item: {name}, formula: {formula_str}, no mapping yet"
-        )
 
         # Create new objective item with default rule and formula
         new_item = ObjectiveItem(
@@ -829,7 +817,7 @@ class ObjectivesListView(QScrollArea):
                 new_item.formula["formula_str"] = name
                 new_item.formula["variable_mapping"] = self.get_variable_mapping(name)
 
-        print(f"end add_item: {new_item.name}, {new_item.formula}")
+        logger.debug(f"end add_item: {new_item.name}, {new_item.formula}")
 
         # Add to items list
         self._all_items.append(new_item)
@@ -845,7 +833,6 @@ class ObjectivesListView(QScrollArea):
     def get_variable_mapping(self, formula_str: str) -> dict[str, str]:
         matches = self.check_for_var_references(formula_str)  # find variable references
         # matches is a list of variable name strings
-        print(f"get_variable_mapping: matches: {matches}")
         visited = set()
 
         variable_mapping = {}
@@ -864,23 +851,22 @@ class ObjectivesListView(QScrollArea):
                 variable_mapping[item.name] = item.formula["formula_str"]
 
             visited.add(match)
-            print(f"match: {match}, var_map: {variable_mapping}")
 
-        print(f"return var mapping: {variable_mapping}")
+        logger.info(f"Return variable mapping: {variable_mapping}")
         return variable_mapping
 
     def check_for_var_references(self, expr: str) -> list[str]:
         """
-        if not self.item_names:
-            return []
-        pat = re.compile(
-            rf"(?<![A-Za-z0-9_.])(?:{'|'.join(map(re.escape, self.item_names))})(?![A-Za-z0-9_(.])"
-        )
-        # pat = re.compile(
-        #    rf"(?<=`)(?:{'|'.join(map(re.escape, self.item_names))})(?=`)"
-        # )
-        matches = pat.findall(expr)
-        return matches
+        Find references to other variables in formula string
+
+        Parameters
+        ----------
+            - expr: str
+                string formula expression, with variables backticked
+
+        Returns
+        -------
+            - List[str] of referenced variables
         """
 
         if not self.item_names:
@@ -898,14 +884,11 @@ class ObjectivesListView(QScrollArea):
         # can name a func "mean" and still do
         # mean(`f`) without matching mean
         # this will match substrings which are:
-
         pat = re.compile(
             rf"""
-
-            (?:(?<=^)|(?<={left_sep})) # start OR preceded by left_sep
-            (?:{alts})                           # match name
-
-            (?![.(])                             # not followed by . or (
+            (?:(?<=^)|(?<={left_sep}))      # start OR preceded by left_sep
+            (?:{alts})                      # match name
+            (?![.(])                        # not followed by . or (
             (?=$|{right_sep})               # end OR right_sep or "**" after
             """,
             re.VERBOSE,
@@ -917,7 +900,8 @@ class ObjectivesListView(QScrollArea):
         return pat.findall(expr)
 
     def _on_item_renamed(self, old_name: str, new_name: str) -> None:
-        """Handle renaming of an item and update references in other items.
+        """
+        Handle renaming of an item and update references in other items.
 
         Parameters
         ----------
@@ -947,10 +931,11 @@ class ObjectivesListView(QScrollArea):
 
         # Update tooltips for all visible row widgets
         for row_widget in self.row_widgets:
-            row_widget.update_formula_tooltip()
+            row_widget.update_tooltip()
 
     def update_item_formula(self, item: ObjectiveItem, new_formula_str: str) -> None:
-        """Handle updating an item's formula and recalculate its variable mapping.
+        """
+        Handle updating an item's formula and recalculate its variable mapping.
 
         Parameters
         ----------
@@ -958,12 +943,9 @@ class ObjectivesListView(QScrollArea):
             The item whose formula is being updated
         new_formula_str : str
             The new formula string
-
-
         """
 
         # self.check_for_circular_reference(item, new_formula_str)
-        print("UPDATE ITEM FORMULA this is different than _on_item_formula_updated")
 
         # check for duplicate formulas
         if new_formula_str in self.formula_strs:
@@ -973,26 +955,18 @@ class ObjectivesListView(QScrollArea):
         item.formula["formula_str"] = new_formula_str
         # Recalculate variable mapping for the updated formula
         mapping = self.get_variable_mapping(new_formula_str)
-        print(f"mapping: {mapping}")
-        # item.formula["variable_mapping"] = self.get_variable_mapping(
-        #    new_formula_str, current_name=item.name
-        # )
-        print(f"item: {item.formula['variable_mapping']}")
         item.formula["variable_mapping"] = mapping
-        print(f"mapping: {mapping}")
-        print(f"update_item_formula: {item.formula['variable_mapping']}")
 
         # update variable_mapping for any items that reference this item as a variable
         for other_item in self._all_items:
             if other_item.formula["formula_str"]:
-                # print(f"other item: {other_item.name}, formula: {other_item.formula}")
                 # replace old variable mapping with new formula for this item
                 if item.name in other_item.formula["variable_mapping"]:
                     other_item.formula["variable_mapping"][item.name] = item.formula
 
         # Update tooltips for all visible row widgets
         for row_widget in self.row_widgets:
-            row_widget.update_formula_tooltip()
+            row_widget.update_tooltip()
 
     def _on_item_formula_updated(
         self, item: ObjectiveItem, new_formula_str: str
@@ -1002,11 +976,13 @@ class ObjectivesListView(QScrollArea):
         if new_formula_str in self.formula_strs:
             self.show_duplicate_warning(new_formula_str)
             return
-        print(f"Updating formula for item {item.name}, new formula: {new_formula_str}")
+
+        logger.info(
+            f"Updating formula for item {item.name}, new formula: {new_formula_str}"
+        )
         item.formula["formula_str"] = new_formula_str
         # Recalculate variable mapping for the updated formula
         item.formula["variable_mapping"] = self.get_variable_mapping(new_formula_str)
-        print(f"UPDATE FORMULA: {item.formula['variable_mapping']}")
 
         # update variable_mapping for any items that reference this item as a variable
         for other_item in self._all_items:
@@ -1018,24 +994,9 @@ class ObjectivesListView(QScrollArea):
 
         # Update tooltips for all visible row widgets
         for row_widget in self.row_widgets:
-            row_widget.update_formula_tooltip()
+            row_widget.update_tooltip()
 
-    """def check_for_circular_reference(self, item: ObjectiveItem, new_formula_str: str) -> None:
-        var_map = self.get_variable_mapping(new_formula_str, current_name=item.name)
-
-        def find_refs(var_mapping: dict, depth: int = 0):
-            for name, mapping in var_mapping.items():
-                # Allow A referencing A directly in its own formula (depth == 0),
-                # but disallow A being reached through another dependency (depth > 0).
-                if name == item.name and depth > 0:
-                    raise ValueError("Circular reference detected!")
-
-                if isinstance(mapping, dict):
-                    find_refs(mapping, depth + 1)
-
-        find_refs(var_map, 0)"""
-
-    def check_for_circular_reference(
+    """def check_for_circular_reference(
         self, item: ObjectiveItem, new_formula_str: str
     ) -> bool:
         # Check for circular references
@@ -1050,7 +1011,7 @@ class ObjectivesListView(QScrollArea):
                 if isinstance(mapping, dict):
                     find_refs(mapping)
 
-        find_refs(self.get_variable_mapping(new_formula_str))
+        find_refs(self.get_variable_mapping(new_formula_str))"""
 
     def update_vocs(self):
         logging.debug("Emitting data_changed signal from editable_table")

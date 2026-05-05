@@ -2,7 +2,10 @@ import re
 import ast
 import math
 import statistics
-from typing import Set, Dict, Any, Tuple
+from typing import Set, Dict, Any, Tuple, List
+import logging
+
+logger = logging.getLogger(__name__)
 
 _UNSAFE_MATH_FUNCS = {
     "factorial",
@@ -87,21 +90,47 @@ _ALLOWED_NODES = (
 
 
 def validate_formula(expr: str, allowed_symbols: Set[str]) -> None:
+    """
+    Validates a formula expression for safe evaluation.
+    Adapted from https://github.com/slaclab/trace/blob/main/trace/utilities/formula_validation.py#L28
+
+    This function parses the expression using Python's AST and validates that:
+    - Only allowed operators and functions are used
+    - All variable names are in the allowed symbols set
+    - The expression is syntactically valid
+
+    Parameters
+    ----------
+    expr : str
+        The mathematical expression to validate
+    allowed_symbols : Set[str]
+        Set of allowed variable names in the expression
+
+    Raises:
+        ValueError: If the expression contains:
+            - Disallowed AST node types or operators
+            - Lists/tuples with complex nested expressions (only simple values allowed)
+            - Lists/tuples exceeding 50 elements
+            - Function calls to non-allowed functions
+            - References to undefined symbols (not in allowed_symbols or allowed functions)
+        SyntaxError: If the expression cannot be parsed as valid Python.
+    """
     tree = ast.parse(expr, mode="eval")
 
     for node in ast.walk(tree):
         if not isinstance(node, _ALLOWED_NODES):
             raise ValueError(f'Operator "{type(node).__name__}" not allowed')
 
-        # Limit list/tuple size, prevent nested lists (only allow name, constant)
         if isinstance(node, (ast.List, ast.Tuple)):
             for element in node.elts:
-                if not isinstance(element, (ast.Name, ast.Constant, ast.BinOp)):
+                if not isinstance(
+                    element, (ast.Name, ast.Constant, ast.BinOp, ast.Call)
+                ):
                     raise ValueError(
                         f"Lists/tuples can only contain simple values, not {type(element).__name__}"
                     )
 
-            if len(node.elts) > 50:  # arbitrary size
+            if len(node.elts) > 50:  # arbitrary
                 raise ValueError(f"List/tuple too large: {len(node.elts)} elements")
 
         if isinstance(node, ast.Call):
@@ -134,14 +163,52 @@ def sanitize_for_validation(expr: str) -> tuple[str, set[str]]:
     return python_expr, set(mapping.values())
 
 
-VAR = re.compile(r"`([^`]+)`")  # find `var` tokens
+VAR = re.compile(r"`([^`]+)`")  # find backticked `var` tokens
 
 
-def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]]:
+def expanded_formula_mapping(
+    data: dict,
+) -> Tuple[Dict[str, str], Dict[str, str], List[str]]:
     """
-    Returns:
-      forward: {name: expanded_formula_string}
-      reverse: {expanded_formula_string: name}
+    Provide a forward and reverse mapping for formula names to expanded formula strings in terms of
+    environment variables. Non-formulas will map to themselves. Also returns a list of base_variables
+    within the formulas.
+
+    Note this generally functions well in my testing, but may have a few bugs and would
+    probably be better to rewrite to use dfs dict traversal rather than recusion
+
+    Variable substitution rules
+    ---------------------------
+    Substitutes variables marked with backticks. If the backticked name is present in
+    "variable_mapping", recursively expands the mapped formula.
+
+    Otherwise, it's treated as a leaf node/base observable if:
+    - the name is not in node["variable_mapping"]
+    - the mapping value is falsy (None, "")
+
+    Parameters
+    ----------
+    - data: dict
+        Badger routine "data"
+        Note: this probably doesn't need the full data dict, only
+        data["vocs"] and data["formulas"] if present
+
+    Returns
+    -------
+    - forward: Dict[str, str]
+        Mapping from each output name to either its expanded formula string (for formulas)
+        or to itself (for base observables/non-formulas).
+    - reverse: Dict[str, str]
+        Reverse lookup mapping from expanded formula string (or identity name)
+        to the first corresponding key in forward
+    - base_observables: List[str]
+        Names of leaf/base observables referenced during expansion within formulas
+
+    Additional Notes
+    ----------------
+    - caches expanded names to avoid expanding the same named formula multiple times.
+    - Detects circular references using stack (may have bug)
+
     """
     cache: Dict[str, str] = {}
     stack = set()
@@ -155,27 +222,20 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
         if sel_name in formulas
     }
     base_observables = []  # keep trach of observables within formulas
-    print(f"all formulas: {formulas}")
-    print(f"start expanding formulas: {selected_formulas}")
+    logger.debug(f"start expanding formulas: {selected_formulas}")
 
     def expand_node(node: Dict[str, Any]) -> str:
-        print(f"expand node? {node}")
+        logger.debug(f"expanding node: {node}")
         s = node["formula_str"]
         mapping = node.get("variable_mapping") or {}
 
-        print(f"mapping: {mapping}")
-
         def sub(m: re.Match) -> str:
             var = m.group(1)
-            print("SUB")
-            print(f"  var: {var}")
             if var not in mapping:
                 base_observables.append(var)
                 return f"`{var}`"  # treat as base variable
                 # raise KeyError(f"Missing mapping for `{var}` in formula: {s!r}")
-            print(f"  mapping: {mapping}")
             target = mapping[var]
-            print(f"  target: {mapping[var]}")
             if not target:  # base variable
                 base_observables.append(var)
                 return f"`{var}`"
@@ -184,7 +244,6 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
         return VAR.sub(sub, s)
 
     def expand_name(name: str) -> str:
-        print(f"expand_name: {name}")
         if name in cache:
             # If it has already been expanded, use the cached version
             return cache[name]
@@ -195,20 +254,17 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
             raise KeyError(f"Unknown formula name: {name!r}")
 
         stack.add(name)
-        print(f"formulas: {selected_formulas}")
-        print(f"node: {formulas[name]}")
         out = expand_node(selected_formulas[name])
         stack.remove(name)
-
         cache[name] = out
+
         return out
 
     forward = {}
 
     for name in selected_formulas:
         if not selected_formulas[name]["formula_str"]:
-            # using formulas to store user-added observables without formulas
-            # if no formula_str treat it as not a formula for mapping.
+            # if no formula_str treat it as not a formula and map to itself.
             forward[name] = name
             continue
         expanded_name = expand_name(name)
@@ -219,7 +275,6 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
             # it is not a formula, should map to itself
             forward[output_name] = output_name
 
-    print(f"base_observables: {base_observables}")
     for obs_name in base_observables:
         if obs_name not in forward:
             forward[obs_name] = obs_name
@@ -232,15 +287,13 @@ def expanded_formula_mapping(data: dict) -> Tuple[Dict[str, str], Dict[str, str]
 
 
 def stat_key_from_expr(expr: str) -> str:
-    # Currently unused
     # Extract statistic key from an expression like
     # "std(`PV1`)/mean(`PV1`)" or "percentile(`PV1`, 90)"
 
     # use string parsing to find what the stat function is
     s = re.sub(r"\s+", "", expr)
 
-    ident = r"`[^`]+`"  # r"`[^`]*`"  # ANY content inside backticks (including empty)
-    # If you want at least 1 char: ident = r"`[^`]+`"
+    ident = r"`[^`]+`"  # content with atleast 1 character inside backticks
 
     if re.fullmatch(rf"std\({ident}\)/mean\({ident}\)", s):
         return "std_rel"

@@ -55,6 +55,10 @@ def _surround_with_backticks(string_list, text):
 
 
 class CompleterTextEdit(QTextEdit):
+    """
+    QTextEdit with completer
+    """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._completer = None
@@ -155,17 +159,9 @@ class BadgerFormulaDialog(QDialog):
         self.table = table
 
         self.items = self.table.items
-        self.variables = {}
 
         self.init_ui()
         self.config_logic()
-
-        self.setup_var_table()
-
-    def setup_var_table(self):
-        for i, item in enumerate(self.items):
-            # print(item, i)
-            pass
 
     def init_ui(self) -> None:
         """
@@ -217,7 +213,6 @@ class BadgerFormulaDialog(QDialog):
         name_header_layout.setContentsMargins(0, 0, 0, 0)
 
         name_label = QLabel("Name: ")
-        name_label.setToolTip("This is what shows up on the GUI")
 
         self.info_button = QPushButton("Show Info >")
         self.info_button.setCheckable(True)
@@ -232,35 +227,17 @@ class BadgerFormulaDialog(QDialog):
         name_layout.addWidget(name_header)
         name_layout.addWidget(self.name_edit)
 
-        variable_widget = QWidget()
-        variable_layout = QVBoxLayout(variable_widget)
-        variable_layout.setContentsMargins(0, 0, 0, 0)
-        variable_label = QLabel("Variables: ")
-        variable_edit_widget = QWidget()
-        self.variable_edit_layout = QVBoxLayout(variable_edit_widget)
-
-        variable_layout.addWidget(variable_label)
-        variable_layout.addWidget(variable_edit_widget)
-
         formula_edit_widget = QWidget()
         formula_edit_layout = QVBoxLayout(formula_edit_widget)
         formula_edit_layout.setContentsMargins(0, 0, 0, 0)
         formula_label = QLabel("Formula: ")
-        formula_label.setToolTip(
-            "This is what will actually be    \n"
-            + "passed to the interface. If    \n"
-            + "other formulas are referenced  \n"
-            + "they will be expanded, and any \n"
-            + "calculations will be done after\n"
-            + "data is retrieved."
-        )
 
         self.formula_edit = CompleterTextEdit()
         self.formula_edit.setPlaceholderText(
-            "Enter formula, for example mean(`f`) or np.std(`f`)**2\n"
+            "Enter formula, for example mean(`f`) or std(`f`)**2\n"
             + "Formula syntax:\n"
             + "  - Enter variable names in backticks: `f`\n"
-            + "  - Use any python.statistics or numpy expression: \n"
+            + "  - Use python.statistics or numpy expressions: \n"
             + "    - mean(`f`), std(`f`), percentile(`f`, 80)\n"
             + "    - operators including *, +, -, /, **\n"
         )
@@ -269,7 +246,6 @@ class BadgerFormulaDialog(QDialog):
             """)
         completer = QCompleter(self.table.item_names, self.formula_edit)
         completer.setCaseSensitivity(Qt.CaseInsensitive)  # ignore case
-        # completer.setFilterMode(Qt.MatchContains)  # match substring (optional)
         completer.setFilterMode(Qt.MatchStartsWith)  # default behavior
 
         # Button set
@@ -290,7 +266,6 @@ class BadgerFormulaDialog(QDialog):
         formula_edit_layout.addWidget(self.formula_edit)
 
         formula_layout.addWidget(name_widget)
-        # formula_layout.addWidget(variable_widget)
         formula_layout.addWidget(formula_edit_widget)
         formula_layout.addWidget(button_set)
 
@@ -334,10 +309,11 @@ class BadgerFormulaDialog(QDialog):
         self.btn_cancel.clicked.connect(self.cancel)
         self.btn_add.clicked.connect(self.construct_formula_str)
         self.info_button.clicked.connect(self.show_info_panel)
-        # self.stat_combo.currentTextChanged.connect(self.update_stat_formula)
-        # self.name_edit.textChanged.connect(self.update_stat_formula)
 
     def show_info_panel(self):
+        """
+        Show/hide side panel with helpful info on writing formulas
+        """
         old_width = self.width()
         if self.info_button.isChecked():
             self.info_button.setText("Hide Info < ")
@@ -354,7 +330,6 @@ class BadgerFormulaDialog(QDialog):
         name = self.name_edit.text()
         formula_str = self.formula_edit.toPlainText().strip()
         if self.validate_formula(formula_str):  # make sure formula is valid
-            print(f"formula_dialog adding formula: {name}, {formula_str}")
             self.table.add_item(name, formula_str, checked=True)
             self.close()
         else:
@@ -365,7 +340,6 @@ class BadgerFormulaDialog(QDialog):
         Validate the formula expression by sanitizing it and checking if it can be parsed
         using allowed symbols
         """
-        print(f"dialog validate formula: {expr}")
         matches = self.table.check_for_var_references(expr)
         # I don't think this is still needed, allowed separately
         # referencing vars in backticks and formulas without
@@ -418,7 +392,6 @@ class FormulaEdit(BadgerFormulaDialog):
             self.formula_edit.toPlainText().split()
         )  # strip newlines, tabs, extra spaces
         if self.validate_formula(formula_str):  # make sure formula is valid
-            print(f"Update formula: {name}, {formula_str}")
             if formula_str != self.item.formula["formula_str"]:
                 # only update formula
                 self.table.update_item_formula(self.row_widget.item, formula_str)
@@ -454,7 +427,6 @@ class ObservableEdit(QDialog):
         self.table = table
 
         self.items = self.table.items
-        self.variables = {}
 
         self.row_widget = row_widget
         self.item = item = row_widget.item
@@ -492,7 +464,6 @@ class ObservableEdit(QDialog):
 
         label = QLabel("test label info would be here")
         label.setMinimumWidth(360)
-
         header_hbox.addWidget(label)
 
         content_widget = QWidget()
@@ -533,7 +504,6 @@ class ObservableEdit(QDialog):
         formula_edit_layout = QHBoxLayout(formula_edit_widget)
         formula_edit_layout.setContentsMargins(0, 0, 0, 0)
         formula_label = QLabel("Statistic: ")
-
         formula_edit_layout.addWidget(formula_label)
 
         self.stat_combo = QComboBox()
@@ -550,7 +520,6 @@ class ObservableEdit(QDialog):
             ]
         )
 
-        # print(f"ObjectiveRowWidget stat: {self.item.stat}")
         self.stat_combo.setCurrentText(self.item.stat)
         self.stat_combo.setFixedWidth(120)
         formula_edit_layout.addWidget(self.stat_combo)
@@ -579,16 +548,11 @@ class ObservableEdit(QDialog):
         """Update item when statistic selection changes."""
         self.item.formula["stat"] = self.stat_combo.currentText()
         self.item.stat = self.stat_combo.currentText()
-        print(f" select stat: {self.item.stat} for {self.item.name}")
 
     def construct_formula_str(self):
         name = self.name_edit.text()
         stat = self.stat_combo.currentText()
-        print(f"name: {name}")
-        print(f"stat: {stat}")
-        print(f"item stat: {self.item.stat}")
         if stat != self.item.stat:
-            # update stat
             self._on_stat_changed()
         if name != self.item.name:
             # only update name

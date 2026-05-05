@@ -157,14 +157,16 @@ def load_run(run_fname: str) -> Routine:
     # TODO: create utility function to catch warnings to remove code
     # duplication
     with warnings.catch_warnings(record=True) as caught_warnings:
-        
+        # Note: replacing Routine.from_file with yaml.safe_load for loading routine yaml file
+        # for formulas update, since info in subdicts was not being loaded.
         with open(filename, "r") as f:
             data = yaml.safe_load(f)
         routine = Routine(**data)
-        print(f"yaml.safe_load: {routine.formulas}")
+        logger.debug(
+            f"yaml.safe_load: {routine.formulas}, routine.vocs: {routine.vocs}"
+        )
 
         # routine = Routine.from_file(filename)
-        print(f"Routine.from_file: {routine.formulas}")
 
         # Check if any user warnings were caught
         for warning in caught_warnings:

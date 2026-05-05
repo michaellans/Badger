@@ -119,28 +119,29 @@ class Routine(Xopt):
 
             # get formulas, expand and map to output names
             formulas = data.get("formulas", {}) or {}
-            print(f"Create_mapping: formulas: {formulas}")
             output_names = list(data["vocs"].output_names)
-            print(f"Create_mapping: output_names: {output_names}")
+
+            # Create a mapping of names as defined in the routine to observables
+            # for the environment. This will expand any formulas in terms of base
+            # observables, and map them back to the original name. Also includes
+            # a list of base_obs, so that the observables within any formulas will
+            # be included in the stored data.
             expanded_names, reverse_map, base_obs = expanded_formula_mapping(data)
-            print(f"FORWARD: {expanded_names}")
-            print(f"REVERSE: {reverse_map}")
-            full_observables = list(expanded_names.values())
             selected_observables = [
                 expanded_names[output_name]
                 for output_name in set(output_names + base_obs)
             ]
-            print(f"SELECTED OBSERVABLES: {selected_observables}")
+            logger.debug(f"Creating formula mapping: {formulas}")
+            logger.debug(f"Selected observables: {selected_observables}")
 
             def evaluate_point(point: dict):
                 logger.debug(f"Evaluating point: {point}")
                 point = pd.Series(point).explode().to_dict()
                 env.set_variables(point)
-                print(f"get_observables vocs: {data['vocs'].output_names}")
-                print(f"get_observables full: {full_observables}")
-                print(f"get_observables selected: {selected_observables}")
+
                 # Get observables from env
                 obs = env.get_observables(selected_observables)
+
                 # map observables back to output names from routine
                 for expanded_name, original_name in reverse_map.items():
                     if expanded_name in obs:
