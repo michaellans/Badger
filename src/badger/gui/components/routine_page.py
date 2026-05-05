@@ -1197,23 +1197,34 @@ class BadgerRoutinePage(QWidget):
             self.add_var()
         )
 
+        print(f"select env configs type: {type(self.configs['observations'])}")
+        if isinstance(self.configs["observations"], dict):
+            self.env_box.objectives_list_view.enable_statistics()
+            # Stats is disabled by default for the objective table for now, this will enable it
+            # If obs is not a dictionary in env, should disable setting statistics
+            # as old environments will not need this feature, and it may add confusion
+
         objectives = []
         status = {}
         formulas = {}
         for name in self.configs["observations"]:
-            default_obj = self.env_box.obj_table.default_info()
-
+            default_obj = self.env_box.objectives_list_view.default_objective()
             # If defaults defined for name in environment use instead
             try:
                 # print(self.configs["observations"])
-                rule = self.configs["observations"][name]["defaults"]["rule"]
+                rule = self.configs["observations"][name]["defaults"].get(
+                    "rule", "MINIMIZE"
+                )
                 stat = self.configs["observations"][name]["defaults"].get(
                     "stat", "none"
                 )
                 default_obj = [rule, stat]
             except (KeyError, TypeError):
                 # Improve
+                print("no defaults")
                 pass
+                
+
 
             obj = {name: default_obj}
             print(f"OBJ: {obj}")

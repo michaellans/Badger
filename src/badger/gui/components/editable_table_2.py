@@ -134,6 +134,7 @@ class ObjectiveRowWidget(QWidget):
         self.item = objective_item
         # print(f"Creating ObjectiveRowWidget for item: {self.item.name}, stat: {self.item.stat}")
         self.row_index = row_index
+        self.stats_enabled: bool = False # disable stats by default for better backwards compatibility
         self._init_ui()
         self._connect_signals()
         self._apply_style()
@@ -219,16 +220,27 @@ class ObjectiveRowWidget(QWidget):
                     border: 1px solid transparent;
                 }
 
-                QLabel:hover {
-                    color: #00CCCC
-                }
-
                 QLineEdit:hover {
                     border: 1px solid DarkCyan;
                 }
 
                 """)
 
+        elif not self.stats_enabled:
+            # if stats disabled, don't show indicator on mouse hover
+            self.name_input.setStyleSheet("""
+                QLineEdit {
+                    color: lightGray;
+                    border: 1px solid transparent;
+                }
+            """)
+            if self.item.origin == Origin.USER:
+                self.name_input.setStyleSheet("""
+                    QLineEdit {
+                        color: darkGray;
+                        border: 1px solid transparent;
+                    }
+                """)
         else:
             # Styling for non-formula observables
             self.name_input.setStyleSheet("""
@@ -277,12 +289,17 @@ class ObjectiveRowWidget(QWidget):
         """Update the tooltip to display the formula_str."""
         if self.item.formula["formula_str"]:
             self.name_input.setToolTip(f"Formula: {self.item.formula['formula_str']}")
-        elif self.item.stat:
+        elif self.item.stat and self.stats_enabled:
             self.name_input.setToolTip(f"Statistic: {self.item.stat}")
 
     def update_formula_tooltip(self):
         """Public method to update the tooltip when formulas change."""
         self._update_tooltip()
+
+    def enable_statistics(self):
+        """enable statistics and reapply stylesheet"""
+        self.stats_enabled = True
+        self._apply_style()
 
     def _connect_signals(self):
         """Connect UI signals to data updates."""
@@ -539,6 +556,13 @@ class ObjectivesListView(QScrollArea):
         self.insert_row.item_requested.connect(self.add_item)
         self.insert_row.hide()
 
+        # flag for enable/disable stats depending on environment specifications
+        self.stats_enabled = False
+
+    def enable_statistics(self):
+        print("enable statistics")
+        self.stats_enabled = True
+
     def update_items(
         self,
         objectives: list[dict[str, Any]],
@@ -636,7 +660,10 @@ class ObjectivesListView(QScrollArea):
                 row_widget.formula_double_clicked.connect(
                     self.formula_double_clicked.emit
                 )
-                row_widget.obs_double_clicked.connect(self.obs_double_clicked.emit)
+                # if stats not enabled, don't connect to enable editing stats
+                if self.stats_enabled:
+                    row_widget.obs_double_clicked.connect(self.obs_double_clicked.emit)
+                    row_widget.enable_statistics()
                 self.row_widgets.append(row_widget)
                 self.container_layout.addWidget(row_widget)
                 row_index += 1
@@ -811,6 +838,9 @@ class ObjectivesListView(QScrollArea):
         self._rebuild_view()
 
         # self.update_vocs()
+
+    def default_objective(self):
+        return ["MINIMIZE"]
 
     def get_variable_mapping(self, formula_str: str) -> dict[str, str]:
         matches = self.check_for_var_references(formula_str)  # find variable references
