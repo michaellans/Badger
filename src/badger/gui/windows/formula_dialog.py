@@ -173,7 +173,7 @@ class BadgerFormulaDialog(QDialog):
         """
 
         self.setWindowTitle("Add formula")
-        self.setMinimumWidth(360)
+        self.setMinimumWidth(370)
 
         root_vbox = QVBoxLayout(self)
 
@@ -206,7 +206,7 @@ class BadgerFormulaDialog(QDialog):
         formula_widget = QWidget()
         formula_layout = QVBoxLayout(formula_widget)
         formula_layout.setContentsMargins(0, 0, 0, 0)
-        formula_widget.setMinimumWidth(320)
+        formula_widget.setMinimumWidth(360)
 
         name_widget = QWidget()
         name_layout = QVBoxLayout(name_widget)
@@ -280,10 +280,10 @@ class BadgerFormulaDialog(QDialog):
         self.btn_add = QPushButton("Add")
         self.btn_cancel.setFixedSize(96, 24)
         self.btn_add.setFixedSize(96, 24)
-        hbox_set.addSpacing(114)
+        hbox_set.addStretch()
         hbox_set.addWidget(self.btn_cancel)
         hbox_set.addWidget(self.btn_add)
-        hbox_set.addStretch()
+        # hbox_set.addStretch()
 
         self.formula_edit.setCompleter(completer)
         formula_edit_layout.addWidget(formula_label)
@@ -300,7 +300,7 @@ class BadgerFormulaDialog(QDialog):
         help_widget = QWidget()
         help_layout = QVBoxLayout(help_widget)
         help_layout.setContentsMargins(0, 0, 0, 0)
-        help_widget.setFixedWidth(220)
+        help_widget.setFixedWidth(230)
         help_widget.setStyleSheet("""
             border: 1px solid #455364;
             background-color: #37414F;
@@ -317,7 +317,7 @@ class BadgerFormulaDialog(QDialog):
             "     python.statistics , or       \n"
             "     python.math such as:         \n"
             "      - mean(`f`), std(`f`)       \n"
-            "      - max(`f`, `g`, `h`)        \n"
+            "      - max([`f`, `g`, `h`])      \n"
             "      - percentile(`f`, 80)       \n"
             "      - percentile(`f`, 50)       \n"
             "                                  \n"
@@ -338,13 +338,16 @@ class BadgerFormulaDialog(QDialog):
         # self.name_edit.textChanged.connect(self.update_stat_formula)
 
     def show_info_panel(self):
+        old_width = self.width()
         if self.info_button.isChecked():
             self.info_button.setText("Hide Info < ")
-            self.setMinuWidth(590)
+            self.setMinimumWidth(615)
+            self.resize(old_width + 235, self.height())
             self.help_widget.setVisible(True)
         else:
             self.info_button.setText("Show Info >")
-            self.setMinimumWidth(360)
+            self.setMinimumWidth(370)
+            self.resize(old_width - 235, self.height())
             self.help_widget.setVisible(False)
 
     def construct_formula_str(self):
