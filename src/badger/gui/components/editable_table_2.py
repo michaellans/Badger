@@ -865,9 +865,9 @@ class ObjectivesListView(QScrollArea):
         new_name : str
             The new name of the item
         """
-        if new_name in self.item_names:
-            self.show_duplicate_warning(new_name)
-            return
+        # if new_name in self.item_names:
+        #    self.show_duplicate_warning(new_name)
+        #    return
 
         # Update formula_str in all items that reference the old name
         for item in self._all_items:

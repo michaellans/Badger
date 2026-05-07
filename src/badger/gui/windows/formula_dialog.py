@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
     QLineEdit,
     QCompleter,
     QComboBox,
+    QMessageBox,
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QTextCursor
@@ -398,7 +399,11 @@ class FormulaEdit(BadgerFormulaDialog):
             if name != self.item.name:
                 # only update name
                 if name in self.items:
-                    print(f"Observable name {name} already exists!")
+                    QMessageBox.warning(
+                        self,
+                        "Item already exists!",
+                        f"Item {name} already exists!",
+                    )
                     return
                 self.row_widget.update_item_name(name)
             self.close()
