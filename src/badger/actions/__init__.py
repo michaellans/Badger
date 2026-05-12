@@ -23,7 +23,7 @@ def show_info(args):
         if check_n_config_paths(args.config_filepath):
             from badger.gui.mini import launch_gui
 
-            launch_gui(config_path)
+            launch_gui(config_path, template_filename=args.template)
 
             return
 

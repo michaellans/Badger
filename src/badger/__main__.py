@@ -44,6 +44,13 @@ def main():
         default=None,
         help="Path to the config file",
     )
+    parser.add_argument(
+        "-t",
+        "--template",
+        type=str,
+        default=None,
+        help="Template filename for mini GUI launch",
+    )
     parser.set_defaults(func=show_info)
     subparsers = parser.add_subparsers(help="Badger commands help")
 

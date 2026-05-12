@@ -1,5 +1,6 @@
 from importlib import resources
 import signal
+import os
 import sys
 import time
 from PyQt5.QtWidgets import QApplication
@@ -7,6 +8,7 @@ from PyQt5.QtGui import QFont, QIcon
 from PyQt5 import QtCore
 from qdarkstyle import load_stylesheet, DarkPalette
 
+from badger.settings import init_settings
 from badger.gui.mini.windows.main_window import BadgerMiniWindow
 
 import traceback
@@ -72,7 +74,7 @@ def error_handler(
     raise BadgerError(error_title, error_msg)
 
 
-def launch_gui(config_path=None):
+def launch_gui(config_path=None, template_filename: str = None):
     sys.excepthook = error_handler
 
     app = QApplication(sys.argv)
@@ -92,6 +94,24 @@ def launch_gui(config_path=None):
 
     # Show the main window
     window = BadgerMiniWindow()
+
+    if template_filename:
+        if config_path is not None:
+            config_singleton = init_settings(config_path)
+        else:
+            config_singleton = init_settings()
+
+        # Template path
+        try:
+            template_dir = config_singleton.read_value("BADGER_TEMPLATE_ROOT")
+            template_path = os.path.join(template_dir, template_filename)
+            window.home_page.routine_editor.load_template_yaml(
+                template_path=template_path
+            )
+        except KeyError:
+            logger.warning(
+                f"Template directory not configured. File {template_filename} was not loaded"
+            )
 
     # Enable Ctrl + C quit
     signal.signal(signal.SIGINT, on_exit)

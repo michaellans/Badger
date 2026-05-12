@@ -314,7 +314,7 @@ class BadgerRoutinePage(QWidget):
         # )  # for debugging
 
     def load_template_yaml(
-        self, checked_state, template_path: str | None = None
+        self, checked_state=None, template_path: str | None = None
     ) -> None:
         logger.info("Loading template YAML.")
         """
@@ -1167,7 +1167,7 @@ class BadgerRoutinePage(QWidget):
         #    observables, status, formulas={}, vocs_signal=False
         # )
 
-        self.env_box.fit_content()
+        # self.env_box.fit_content()
         # self.routine = None
 
         # self.env_box.update_stylesheets(env.name)
