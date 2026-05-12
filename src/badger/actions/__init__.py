@@ -19,6 +19,14 @@ def show_info(args):
 
             return
 
+    if args.mini:
+        if check_n_config_paths(args.config_filepath):
+            from badger.gui.mini import launch_gui
+
+            launch_gui(config_path)
+
+            return
+
     if not check_n_config_paths():
         return
 

@@ -25,6 +25,9 @@ def main():
         "-ga", "--gui-acr", action="store_true", help="launch the GUI for ACR"
     )
     parser.add_argument(
+        "-mini", "--mini", action="store_true", help="launch Badger mini"
+    )
+    parser.add_argument(
         "-l",
         "--log_level",
         choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],

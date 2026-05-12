@@ -1,0 +1,486 @@
+from typing import Any
+
+from PyQt5.QtWidgets import (
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QWidget,
+    QLineEdit,
+    QSizePolicy,
+)
+from PyQt5.QtWidgets import (
+    QCheckBox,
+    QStyledItemDelegate,
+    QLabel,
+)
+from PyQt5.QtCore import QRegExp, QPropertyAnimation, pyqtSignal
+from pydantic_core import ValidationError
+
+from badger.errors import BadgerRoutineError
+from badger.gui.components.collapsible_box import CollapsibleBox
+from badger.gui.components.pydantic_editor import BadgerPydanticEditor
+from badger.gui.components.var_table import VariableTable
+from badger.gui.components.obj_table import ObjectiveTable
+from badger.gui.components.con_table import ConstraintTable
+from badger.gui.components.data_table import init_data_table
+from badger.gui.utils import (
+    MouseWheelWidgetAdjustmentGuard,
+    NoHoverFocusComboBox,
+)
+from xopt.vocs import VOCS
+from gest_api.vocs import ContinuousVariable
+
+import logging
+
+LABEL_WIDTH = 96
+
+stylesheet_auto = """
+    #VarPanel {
+        border: 4px solid #FDD835;
+        border-radius: 4px;
+    }
+"""
+
+stylesheet_manual = """
+    #VarPanel {
+        border: 4px solid #60798B;
+        border-radius: 4px;
+    }
+"""
+
+stylesheet_auto_msg = """
+    QLabel {
+        background-color: #FDD835;
+        color: #19232D;
+        padding: 4px 4px 8px 4px;
+        border-radius: 0;
+    }
+"""
+
+stylesheet_manual_msg = """
+    QLabel {
+        background-color: #60798B;
+        color: #FFFFFF;
+        padding: 4px 4px 8px 4px;
+        border-radius: 0;
+    }
+"""
+
+stylesheet_load = """
+QPushButton:hover:pressed
+{
+    background-color: #4DB6AC;
+}
+QPushButton:hover
+{
+    background-color: #26A69A;
+}
+QPushButton
+{
+    color: #FFFFFF;
+    background-color: #00897B;
+}
+"""
+
+
+CONS_RELATION_DICT = {
+    ">": "GREATER_THAN",
+    "<": "LESS_THAN",
+}
+
+
+logger = logging.getLogger(__name__)
+
+
+def format_validation_error(e: ValidationError) -> str:
+    """Convert Pydantic ValidationError into a friendly message."""
+    messages = ["\n"]
+    for err in e.errors():
+        loc = " -> ".join(str(item) for item in err["loc"])
+        msg = f"{loc}: {err['msg']}\n"
+        messages.append(msg)
+    return "\n".join(messages)
+
+
+class BadgerEnvBox(QWidget):
+    vocs_updated = pyqtSignal(object)  # or use a more specific type if you want
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        envs: list[str] = [],
+        generators: list[str] = [],
+    ):
+        super().__init__(parent)
+
+        self.envs = envs
+        self.generators = generators
+
+        self.init_ui()
+        self.config_logic()
+
+    def init_ui(self):
+        self.setObjectName("EnvBox")  # this is for stylesheet?
+
+        # vbox layout
+        vbox = QVBoxLayout(self)
+        vbox.setContentsMargins(8, 8, 8, 8)
+
+        template_widget = QWidget()
+        hbox_template = QHBoxLayout(template_widget)
+        hbox_template.setContentsMargins(0, 0, 0, 0)
+        template_lbl = QLabel("Template")  # label
+        template_lbl.setFixedWidth(LABEL_WIDTH)
+        self.template_cb = template_cb = NoHoverFocusComboBox()  # comboBox
+        self.template_cb.setFixedWidth(LABEL_WIDTH * 2)
+        template_cb.setItemDelegate(QStyledItemDelegate())
+        # template_cb.addItems(self.envs)
+        template_cb.setCurrentIndex(-1)
+        template_cb.installEventFilter(MouseWheelWidgetAdjustmentGuard(template_cb))
+
+        self.load_template_button = QPushButton("Select Template")
+        # btn_select_template.setFixedSize(406, 24)
+        self.load_template_button.setFixedHeight(24)
+        self.load_template_button.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Fixed
+        )
+
+        # hbox_template.addWidget(template_lbl)
+        # hbox_template.addWidget(template_cb)
+        hbox_template.addWidget(self.load_template_button)
+        # hbox_template.addStretch()
+
+        vbox.addWidget(template_widget)
+
+        # Environment
+        env = QWidget()
+        vbox_env = QHBoxLayout(env)
+        vbox_env.setContentsMargins(0, 0, 0, 0)
+        select_env = QWidget()
+        hbox_select_env = QHBoxLayout(select_env)
+        hbox_select_env.setContentsMargins(0, 0, 0, 0)
+        env_lbl = QLabel("Environment")  # label
+        env_lbl.setFixedWidth(LABEL_WIDTH)
+        self.env_cb = env_cb = NoHoverFocusComboBox()  # comboBox
+        self.env_cb.setFixedWidth(LABEL_WIDTH * 2)
+        env_cb.setItemDelegate(QStyledItemDelegate())
+        env_cb.addItems(self.envs)
+        env_cb.setCurrentIndex(-1)
+        env_cb.installEventFilter(MouseWheelWidgetAdjustmentGuard(env_cb))
+        self.btn_params = btn_params = QPushButton("Parameters")  # params btn
+        btn_params.setFixedSize(96, 24)
+
+        env_params = QWidget()
+        hbox_env_params = QHBoxLayout(env_params)
+        hbox_env_params.addSpacing(LABEL_WIDTH)
+
+        hbox_select_env.addWidget(env_lbl)
+        hbox_select_env.addWidget(env_cb)
+        hbox_select_env.addWidget(btn_params)
+        hbox_select_env.addStretch()
+
+        vbox_env.addWidget(select_env)
+
+        vbox.addWidget(env)
+
+        # Environment params editor (hidden)
+        self.edit = BadgerPydanticEditor()
+        self.edit.setMaximumHeight(0)
+        self.edit.hide()
+        # Animate open/close parameters
+        self.animation = QPropertyAnimation(self.edit, b"maximumHeight")
+        self.animation.setDuration(150)
+
+        vbox.addWidget(self.edit)
+
+        # Algorithm
+        algo_widget = QWidget()
+        hbox_algo = QHBoxLayout(algo_widget)
+        hbox_algo.setContentsMargins(0, 0, 0, 0)
+        algo_lbl = QLabel("Algorithm")  # label
+        algo_lbl.setFixedWidth(LABEL_WIDTH)
+        self.algo_cb = algo_cb = NoHoverFocusComboBox()  # comboBox
+        algo_cb.setFixedWidth(LABEL_WIDTH * 2)
+        algo_cb.setItemDelegate(QStyledItemDelegate())
+        algo_cb.addItems(self.generators)
+        algo_cb.setCurrentIndex(-1)
+        algo_cb.installEventFilter(MouseWheelWidgetAdjustmentGuard(algo_cb))
+        self.algo_params_btn = QPushButton("Parameters")
+        self.algo_params_btn.setFixedSize(96, 24)
+
+        hbox_algo.addWidget(algo_lbl)
+        hbox_algo.addWidget(algo_cb)
+        hbox_algo.addWidget(self.algo_params_btn)
+
+        hbox_algo.addStretch()
+
+        vbox.addWidget(algo_widget)
+
+        # Variables
+        var_panel_origin = QWidget()
+
+        # construct variables as an hbox, with label, stretch, then table on the right
+        hbox_var = QHBoxLayout(var_panel_origin)
+        hbox_var.setContentsMargins(0, 0, 0, 0)
+
+        lbl_var_col = QWidget()  # column with stretch under
+        vbox_lbl_var = QVBoxLayout(lbl_var_col)
+        vbox_lbl_var.setContentsMargins(0, 0, 0, 0)
+        lbl_var = QLabel("Variables")
+        lbl_var.setFixedWidth(LABEL_WIDTH)
+        vbox_lbl_var.addWidget(lbl_var)
+        vbox_lbl_var.addStretch(1)
+        hbox_var.addWidget(lbl_var_col)
+
+        vbox.addWidget(var_panel_origin)
+
+        # Edit variables (right side of hbox_var)
+        edit_var_col = QWidget()
+        vbox_var_edit = QVBoxLayout(edit_var_col)
+        vbox_var_edit.setContentsMargins(0, 0, 0, 0)
+
+        # variables menu bar
+        action_var = QWidget()
+        hbox_action_var = QHBoxLayout(action_var)
+        hbox_action_var.setContentsMargins(0, 0, 0, 0)
+        vbox_var_edit.addWidget(action_var)
+        # filter variables
+        self.edit_var = edit_var = QLineEdit()
+        edit_var.setPlaceholderText("Filter variables...")
+        edit_var.setFixedWidth(160)
+
+        # show checked only
+        self.check_only_var = check_only_var = QCheckBox("Show Checked Only")
+        check_only_var.setChecked(False)
+        hbox_action_var.addWidget(edit_var)
+        hbox_action_var.addStretch()
+        hbox_action_var.addWidget(check_only_var)
+
+        # var table
+        self.var_table = VariableTable()
+        self.var_table.lock_bounds()
+        vbox_var_edit.addWidget(self.var_table)
+
+        # Initial Points
+        collapsiblebox_init = CollapsibleBox(
+            self,
+            " Initial Points",
+        )
+        vbox_var_edit.addWidget(collapsiblebox_init)
+        vbox_init = QVBoxLayout()
+        vbox_init.setContentsMargins(8, 8, 8, 8)
+        action_init = QWidget()
+        hbox_action_init = QHBoxLayout(action_init)
+        hbox_action_init.setContentsMargins(0, 0, 0, 0)
+        self.btn_add_row = btn_add_row = QPushButton("Add Row")
+        btn_add_row.setFixedSize(96, 24)
+        self.btn_add_curr = btn_add_curr = QPushButton("Add Current")
+        btn_add_curr.setFixedSize(96, 24)
+        self.btn_add_rand = btn_add_rand = QPushButton("Add Random")
+        btn_add_rand.setFixedSize(96, 24)
+        self.btn_clear = btn_clear = QPushButton("Clear All")
+        btn_clear.setFixedSize(96, 24)
+        hbox_action_init.addWidget(btn_add_row)
+        hbox_action_init.addStretch()
+        hbox_action_init.addWidget(btn_add_curr)
+        hbox_action_init.addWidget(btn_add_rand)
+        hbox_action_init.addWidget(btn_clear)
+        vbox_init.addWidget(action_init)
+        self.init_table = init_data_table()
+        self.init_table.set_uneditable()
+        vbox_init.addWidget(self.init_table)
+        collapsiblebox_init.setContentLayout(vbox_init)
+        # cbox_init.expand()
+
+        hbox_var.addWidget(edit_var_col)
+
+        # Objectives config (table style)
+        obj_panel = QWidget()
+        vbox.addWidget(obj_panel, 1)
+        hbox_obj = QHBoxLayout(obj_panel)
+        hbox_obj.setContentsMargins(0, 0, 0, 0)
+        lbl_obj_col = QWidget()
+        vbox_lbl_obj = QVBoxLayout(lbl_obj_col)
+        vbox_lbl_obj.setContentsMargins(0, 0, 0, 0)
+        lbl_obj = QLabel("Objectives")
+        lbl_obj.setFixedWidth(LABEL_WIDTH)
+        vbox_lbl_obj.addWidget(lbl_obj)
+        vbox_lbl_obj.addStretch(1)
+        hbox_obj.addWidget(lbl_obj_col)
+
+        edit_obj_col = QWidget()
+        vbox_obj_edit = QVBoxLayout(edit_obj_col)
+        vbox_obj_edit.setContentsMargins(0, 0, 0, 0)
+
+        action_obj = QWidget()
+        hbox_action_obj = QHBoxLayout(action_obj)
+        hbox_action_obj.setContentsMargins(0, 0, 0, 0)
+        vbox_obj_edit.addWidget(action_obj)
+        self.edit_obj = edit_obj = QLineEdit()
+        edit_obj.setPlaceholderText("Filter objectives...")
+        edit_obj.setFixedWidth(192)
+        self.check_only_obj = check_only_obj = QCheckBox("Show Checked Only")
+        check_only_obj.setChecked(False)
+        hbox_action_obj.addWidget(edit_obj)
+        hbox_action_obj.addStretch()
+        hbox_action_obj.addWidget(check_only_obj)
+
+        self.obj_table = ObjectiveTable()
+        vbox_obj_edit.addWidget(self.obj_table)
+        hbox_obj.addWidget(edit_obj_col)
+
+        cbox_more = CollapsibleBox(self, " Constraints")
+        vbox.addWidget(cbox_more)
+        vbox_more = QVBoxLayout()
+
+        # Constraints config
+        con_panel = QWidget()
+        vbox_more.addWidget(con_panel)
+        hbox_con = QHBoxLayout(con_panel)
+        hbox_con.setContentsMargins(0, 0, 0, 0)
+        lbl_con_col = QWidget()
+        vbox_lbl_con = QVBoxLayout(lbl_con_col)
+        vbox_lbl_con.setContentsMargins(0, 0, 0, 0)
+        lbl_con = QLabel("Constraints")
+        lbl_con.setFixedWidth(LABEL_WIDTH)
+        vbox_lbl_con.addWidget(lbl_con)
+        vbox_lbl_con.addStretch(1)
+        hbox_con.addWidget(lbl_con_col)
+
+        edit_con_col = QWidget()
+        vbox_con_edit = QVBoxLayout(edit_con_col)
+        vbox_con_edit.setContentsMargins(0, 0, 0, 0)
+
+        action_con = QWidget()
+        hbox_action_con = QHBoxLayout(action_con)
+        hbox_action_con.setContentsMargins(0, 0, 0, 0)
+        vbox_con_edit.addWidget(action_con)
+        self.edit_con = edit_con = QLineEdit()
+        edit_con.setPlaceholderText("Filter constraints...")
+        edit_con.setFixedWidth(192)
+        self.check_only_con = check_only_con = QCheckBox("Show Checked Only")
+        check_only_con.setChecked(False)
+        hbox_action_con.addWidget(edit_con)
+        hbox_action_con.addStretch()
+        hbox_action_con.addWidget(check_only_con)
+
+        self.con_table = ConstraintTable()
+        self.con_table.setMinimumHeight(120)
+        vbox_con_edit.addWidget(self.con_table)
+        hbox_con.addWidget(edit_con_col)
+
+        cbox_more.setContentLayout(vbox_more)
+
+    def config_logic(self):
+        self.dict_con = {}
+
+        self.edit_var.textChanged.connect(self.filter_var)
+        self.check_only_var.stateChanged.connect(self.toggle_var_show_mode)
+        self.edit_obj.textChanged.connect(self.filter_obj)
+        self.check_only_obj.stateChanged.connect(self.toggle_obj_show_mode)
+        self.edit_con.textChanged.connect(self.filter_con)
+        self.check_only_con.stateChanged.connect(self.toggle_con_show_mode)
+        self.btn_params.toggled.connect(self.toggle_params)
+        self.animation.finished.connect(self.animation_finished)
+
+        self.obj_table.data_changed.connect(lambda: self.update_vocs("obj_table"))
+        self.con_table.data_changed.connect(lambda: self.update_vocs("con_table"))
+        self.var_table.data_changed.connect(lambda: self.update_vocs("var_table"))
+
+    def update_vocs(self, origin: str):
+        logger.debug(f"Emitting vocs_updated signal from env_cbox: {origin}")
+        vocs, _ = self.compose_vocs()
+        self.vocs_updated.emit(vocs)
+
+    def toggle_params(self, checked: bool):
+        if not checked:
+            self.animation.setStartValue(self.edit.sizeHint().height())
+            self.animation.setEndValue(0)
+        else:
+            # Animate to fill the available vertical space
+            self.animation.setStartValue(0)
+            self.animation.setEndValue(self.edit.sizeHint().height() * 4)
+            self.edit.show()
+
+        # Configure the animation
+        self.animation.start()
+
+    def animation_finished(self):
+        if self.edit.maximumHeight() == 0:
+            self.edit.hide()
+
+    def toggle_var_show_mode(self, _):
+        self.var_table.toggle_show_mode(self.check_only_var.isChecked())
+
+    def add_var(self, name, lb, ub):
+        self.var_table.add_variable(name, lb, ub)
+        self.filter_var()
+
+    def filter_var(self):
+        keyword = self.edit_var.text()
+        rx = QRegExp(keyword)
+
+        _variables = []
+        for var in self.var_table.all_variables:
+            vname = next(iter(var))
+            if rx.indexIn(vname, 0) != -1:
+                _variables.append(var)
+
+        self.var_table.update_variables(_variables, 1)
+
+    def toggle_obj_show_mode(self, _):
+        self.obj_table.update_show_selected_only(self.check_only_obj.isChecked())
+
+    def filter_obj(self):
+        self.obj_table.update_keyword(self.edit_obj.text())
+
+    def toggle_con_show_mode(self, _):
+        self.con_table.update_show_selected_only(self.check_only_con.isChecked())
+
+    def filter_con(self):
+        self.con_table.update_keyword(self.edit_con.text())
+
+    def _fit_content(self, list):
+        height = list.sizeHintForRow(0) * list.count() + 2 * list.frameWidth() + 4
+        height = max(28, min(height, 192))
+        list.setFixedHeight(height)
+
+    def compose_vocs(self) -> tuple[VOCS, list[str]]:
+        # Compose the VOCS settings
+        variables = self.var_table.export_variables()
+
+        objectives: dict[str, Any] = {}
+        for objective in self.obj_table.export_data():
+            obj_name = next(iter(objective))
+            (rule,) = objective[obj_name]
+            objectives[obj_name] = rule
+
+        constraints: dict[str, list[float]] = {}
+        critical_constraints: list[str] = []
+        for constraint in self.con_table.export_data():
+            con_name = next(iter(constraint))
+            relation, threshold, critical = constraint[con_name]
+            constraints[con_name] = [CONS_RELATION_DICT[relation], threshold]
+            if critical:
+                critical_constraints.append(con_name)
+
+        observables: list[str] = []
+
+        try:
+            # We want to ensure it's a dict of either lists or ContinuousVariables
+            variables = {
+                k: list(v) if not isinstance(v, ContinuousVariable) else v
+                for k, v in variables.items()
+            }
+            vocs = VOCS(
+                variables=variables,
+                objectives=objectives,
+                constraints=constraints,
+                constants={},
+                observables=observables,
+            )
+        except ValidationError as e:
+            raise BadgerRoutineError(
+                f"\n\nVOCS validation failed: {format_validation_error(e)}"
+            ) from e
+        return vocs, critical_constraints
