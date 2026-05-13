@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QWidget,
     QLineEdit,
+    QTreeWidget,
     QSizePolicy,
 )
 from PyQt5.QtWidgets import (
@@ -261,6 +262,7 @@ class BadgerEnvBox(QWidget):
         self.var_table = VariableTable()
         self.var_table.lock_bounds()
         self.var_table.setMinimumHeight(200)
+        self.var_table.verticalHeader().setVisible(False)
         vbox_var_edit.addWidget(self.var_table)
 
         # Initial Points
@@ -398,6 +400,9 @@ class BadgerEnvBox(QWidget):
     def toggle_env_params(self, checked: bool):
         if not checked:
             self.edit_env_params.hide()
+            self.edit_env_params.setMinimumHeight(
+                self._qtree_height_hint(self.edit_env_params)
+            )
         else:
             self.edit_env_params.show()
 
@@ -405,7 +410,15 @@ class BadgerEnvBox(QWidget):
         if not checked:
             self.edit_algo_params.hide()
         else:
+            self.edit_algo_params.setMinimumHeight(
+                self._qtree_height_hint(self.edit_algo_params)
+            )
             self.edit_algo_params.show()
+
+    def _qtree_height_hint(self, widget: QTreeWidget) -> int:
+        # set height based on number of rows * row size
+        # but somewhere between 50 and 200
+        return min(widget.topLevelItemCount() * widget.sizeHintForRow(0) + 50, 200)
 
     def toggle_var_show_mode(self, _):
         self.var_table.toggle_show_mode(self.check_only_var.isChecked())
