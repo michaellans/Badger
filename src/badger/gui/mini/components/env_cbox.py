@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QStyledItemDelegate,
     QLabel,
 )
-from PyQt5.QtCore import QRegExp, QPropertyAnimation, pyqtSignal
+from PyQt5.QtCore import QRegExp, pyqtSignal
 from pydantic_core import ValidationError
 
 from badger.errors import BadgerRoutineError
@@ -154,7 +154,7 @@ class BadgerEnvBox(QWidget):
 
         # Environment
         env = QWidget()
-        vbox_env = QHBoxLayout(env)
+        vbox_env = QVBoxLayout(env)
         vbox_env.setContentsMargins(0, 0, 0, 0)
         select_env = QWidget()
         hbox_select_env = QHBoxLayout(select_env)
@@ -167,8 +167,9 @@ class BadgerEnvBox(QWidget):
         env_cb.addItems(self.envs)
         env_cb.setCurrentIndex(-1)
         env_cb.installEventFilter(MouseWheelWidgetAdjustmentGuard(env_cb))
-        self.btn_params = btn_params = QPushButton("Parameters")  # params btn
-        btn_params.setFixedSize(96, 24)
+        self.btn_env_params = QPushButton("Parameters")  # params btn
+        self.btn_env_params.setFixedSize(96, 24)
+        self.btn_env_params.setCheckable(True)
 
         env_params = QWidget()
         hbox_env_params = QHBoxLayout(env_params)
@@ -176,22 +177,17 @@ class BadgerEnvBox(QWidget):
 
         hbox_select_env.addWidget(env_lbl)
         hbox_select_env.addWidget(env_cb)
-        hbox_select_env.addWidget(btn_params)
+        hbox_select_env.addWidget(self.btn_env_params)
         hbox_select_env.addStretch()
 
+        # Environment params editor (hidden)
+        self.edit_env_params = BadgerPydanticEditor()
+        self.edit_env_params.hide()
+
         vbox_env.addWidget(select_env)
+        vbox_env.addWidget(self.edit_env_params)
 
         vbox.addWidget(env)
-
-        # Environment params editor (hidden)
-        self.edit = BadgerPydanticEditor()
-        self.edit.setMaximumHeight(0)
-        self.edit.hide()
-        # Animate open/close parameters
-        self.animation = QPropertyAnimation(self.edit, b"maximumHeight")
-        self.animation.setDuration(150)
-
-        vbox.addWidget(self.edit)
 
         # Algorithm
         algo_widget = QWidget()
@@ -205,16 +201,21 @@ class BadgerEnvBox(QWidget):
         algo_cb.addItems(self.generators)
         algo_cb.setCurrentIndex(-1)
         algo_cb.installEventFilter(MouseWheelWidgetAdjustmentGuard(algo_cb))
-        self.algo_params_btn = QPushButton("Parameters")
-        self.algo_params_btn.setFixedSize(96, 24)
+        self.btn_algo_parans = QPushButton("Parameters")
+        self.btn_algo_parans.setFixedSize(96, 24)
+        self.btn_algo_parans.setCheckable(True)
 
         hbox_algo.addWidget(algo_lbl)
         hbox_algo.addWidget(algo_cb)
-        hbox_algo.addWidget(self.algo_params_btn)
+        hbox_algo.addWidget(self.btn_algo_parans)
 
         hbox_algo.addStretch()
 
+        self.edit_algo_params = BadgerPydanticEditor()
+        self.edit_algo_params.hide()
+
         vbox.addWidget(algo_widget)
+        vbox.addWidget(self.edit_algo_params)
 
         # Variables
         var_panel_origin = QWidget()
@@ -259,6 +260,7 @@ class BadgerEnvBox(QWidget):
         # var table
         self.var_table = VariableTable()
         self.var_table.lock_bounds()
+        self.var_table.setMinimumHeight(200)
         vbox_var_edit.addWidget(self.var_table)
 
         # Initial Points
@@ -380,8 +382,8 @@ class BadgerEnvBox(QWidget):
         self.check_only_obj.stateChanged.connect(self.toggle_obj_show_mode)
         self.edit_con.textChanged.connect(self.filter_con)
         self.check_only_con.stateChanged.connect(self.toggle_con_show_mode)
-        self.btn_params.toggled.connect(self.toggle_params)
-        self.animation.finished.connect(self.animation_finished)
+        self.btn_env_params.toggled.connect(self.toggle_env_params)
+        self.btn_algo_parans.toggled.connect(self.toggle_algorithm_params)
 
         self.obj_table.data_changed.connect(lambda: self.update_vocs("obj_table"))
         self.con_table.data_changed.connect(lambda: self.update_vocs("con_table"))
@@ -391,23 +393,19 @@ class BadgerEnvBox(QWidget):
         logger.debug(f"Emitting vocs_updated signal from env_cbox: {origin}")
         vocs, _ = self.compose_vocs()
         self.vocs_updated.emit(vocs)
+        self.edit_algo_params.update_vocs(vocs)
 
-    def toggle_params(self, checked: bool):
+    def toggle_env_params(self, checked: bool):
         if not checked:
-            self.animation.setStartValue(self.edit.sizeHint().height())
-            self.animation.setEndValue(0)
+            self.edit_env_params.hide()
         else:
-            # Animate to fill the available vertical space
-            self.animation.setStartValue(0)
-            self.animation.setEndValue(self.edit.sizeHint().height() * 4)
-            self.edit.show()
+            self.edit_env_params.show()
 
-        # Configure the animation
-        self.animation.start()
-
-    def animation_finished(self):
-        if self.edit.maximumHeight() == 0:
-            self.edit.hide()
+    def toggle_algorithm_params(self, checked: bool):
+        if not checked:
+            self.edit_algo_params.hide()
+        else:
+            self.edit_algo_params.show()
 
     def toggle_var_show_mode(self, _):
         self.var_table.toggle_show_mode(self.check_only_var.isChecked())

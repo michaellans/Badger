@@ -410,7 +410,7 @@ class BadgerRoutinePage(QWidget):
         if env_name in self.envs:
             i = self.envs.index(env_name)
             self.env_box.env_cb.setCurrentIndex(i)
-            self.env_box.edit.set_params_from_dict(env_params)
+            self.env_box.edit_env_params.set_params_from_dict(env_params)
         else:
             raise BadgerEnvNotFoundError(
                 f"Template environment {env_name} not found in Badger environments"
@@ -585,11 +585,13 @@ class BadgerRoutinePage(QWidget):
         vocs, critical_constraints = self.env_box.compose_vocs()
 
         # Filter generator
-        generator_name = self.generator_box.cb.currentText()
+        generator_name = self.env_box.algo_cb.currentText()
 
         generator_config = self._filter_generator_params(
             generator_name=generator_name,
-            generator_config=load_config(self.generator_box.edit.get_parameters_yaml()),
+            generator_config=load_config(
+                self.env_box.edit_algo_params.get_parameters_yaml()
+            ),
         )
 
         template_dict = {
@@ -602,7 +604,9 @@ class BadgerRoutinePage(QWidget):
             | generator_config,
             "environment": {
                 "name": self.env_box.env_cb.currentText(),
-                "params": load_config(self.env_box.edit.get_parameters_yaml()),
+                "params": load_config(
+                    self.env_box.edit_env_params.get_parameters_yaml()
+                ),
             },
             "vrange_limit_options": self.ratio_var_ranges,
             "vrange_hard_limit": self.var_hard_limit,
@@ -693,7 +697,7 @@ class BadgerRoutinePage(QWidget):
 
         if routine is None:
             # Reset the generator and env configs
-            self.generator_box.cb.setCurrentIndex(-1)
+            self.env_box.algo_cb.setCurrentIndex(-1)
             self.env_box.env_cb.setCurrentIndex(-1)
             init_table = self.env_box.init_table
             init_table.clear()
@@ -737,8 +741,8 @@ class BadgerRoutinePage(QWidget):
                 dialog.exec_()
 
             idx_generator = -1
-        with BlockSignalsContext(self.generator_box.cb):
-            self.generator_box.cb.setCurrentIndex(idx_generator)
+        with BlockSignalsContext(self.env_box.algo_cb):
+            self.env_box.algo_cb.setCurrentIndex(idx_generator)
         filtered_config = filter_generator_config(
             name_generator, routine.generator.model_dump()
         )
@@ -751,7 +755,7 @@ class BadgerRoutinePage(QWidget):
         #     except Exception:
         #         vocs = None
 
-        self.generator_box.edit.set_params_from_generator(
+        self.env_box.edit_algo_params.set_params_from_generator(
             name_generator, filtered_config, vocs, validate=False
         )
         self.script = routine.script
@@ -761,7 +765,7 @@ class BadgerRoutinePage(QWidget):
         self.env_box.env_cb.setCurrentIndex(idx_env)
         env_params = routine.environment.model_dump()
         del env_params["interface"]
-        self.env_box.edit.set_params_from_dict(env_params)
+        self.env_box.edit_env_params.set_params_from_dict(env_params)
 
         # Config the vocs panel
         variables = routine.vocs.variable_names
@@ -936,14 +940,14 @@ class BadgerRoutinePage(QWidget):
 
     def select_generator(self, i: int):
         logger.info(
-            f"Generator selected: {self.generator_box.cb.itemText(i)} (index={i})"
+            f"Generator selected: {self.env_box.algo_cb.itemText(i)} (index={i})"
         )
         # Reset the script
         self.script = ""
         self.generator_box.check_use_script.setChecked(False)
 
         if i == -1:
-            self.generator_box.edit.clear()
+            self.env_box.edit_algo_params.clear()
             self.generator_box.cb_scaling.setCurrentIndex(-1)
             return
 
@@ -964,7 +968,9 @@ class BadgerRoutinePage(QWidget):
             vocs, _ = self.env_box.compose_vocs()
         except Exception:
             vocs = None
-        self.generator_box.edit.set_params_from_generator(name, filtered_config, vocs)
+        self.env_box.edit_algo_params.set_params_from_generator(
+            name, filtered_config, vocs
+        )
 
         # Update the docs
         self.window_docs.update_docs(name, "generator")
@@ -985,15 +991,15 @@ class BadgerRoutinePage(QWidget):
     def toggle_use_script(self):
         if self.generator_box.check_use_script.isChecked():
             self.generator_box.btn_edit_script.show()
-            self.generator_box.edit.setDisabled(True)
+            self.env_box.edit_algo_params.setDisabled(True)
             self.refresh_params_generator()
         else:
             self.generator_box.btn_edit_script.hide()
-            self.generator_box.edit.setDisabled(False)
+            self.env_box.edit_algo_params.setDisabled(False)
 
     def edit_script(self):
         logger.info("Editing script for routine.")
-        generator = self.generator_box.cb.currentText()
+        generator = self.env_box.algo_cb.currentText()
         dlg = BadgerEditScriptDialog(self, generator, self.script, self.script_updated)
         dlg.exec()
 
@@ -1004,7 +1010,7 @@ class BadgerRoutinePage(QWidget):
 
     def create_env(self):
         logger.info("Creating environment instance.")
-        env_params = load_config(self.env_box.edit.get_parameters_yaml())
+        env_params = load_config(self.env_box.edit_env_params.get_parameters_yaml())
         try:
             intf_name = self.configs["interface"][0]
         except KeyError:
@@ -1040,7 +1046,7 @@ class BadgerRoutinePage(QWidget):
                 vocs = None
             # Function generate comes from the script
             params_generator = tmp["generate"](env, vocs)
-            self.generator_box.edit.set_params_from_generator(
+            self.env_box.edit_algo_params.set_params_from_generator(
                 self.routine.generator.name, params_generator, vocs
             )
         except Exception as e:
@@ -1059,7 +1065,7 @@ class BadgerRoutinePage(QWidget):
             self.archive_search.close()
 
         if i == -1:
-            self.env_box.edit.clear()
+            self.env_box.edit_env_params.clear()
             self.env_box.edit_var.clear()
             self.env_box.var_table.update_variables(None)
             self.configs = None
@@ -1094,7 +1100,7 @@ class BadgerRoutinePage(QWidget):
             self.routine = None
             return QMessageBox.critical(self, "Error!", traceback.format_exc())
 
-        self.env_box.edit.set_params_from_dict(configs["params"])
+        self.env_box.edit_env_params.set_params_from_dict(configs["params"])
 
         # Get and save vars to combine with additional vars added on the fly
         vars_env = self.vars_env = configs["variables"]
@@ -1328,7 +1334,7 @@ class BadgerRoutinePage(QWidget):
         pass
 
     def open_generator_docs(self):
-        name = self.generator_box.cb.currentText()
+        name = self.env_box.algo_cb.currentText()
         self.window_docs.update_docs(name, "generator")
         self.window_docs.show()
 
@@ -1350,7 +1356,7 @@ class BadgerRoutinePage(QWidget):
 
     def add_var(self):
         # TODO: Use a cached env
-        env_params = load_config(self.env_box.edit.get_parameters_yaml())
+        env_params = load_config(self.env_box.edit_env_params.get_parameters_yaml())
         try:
             intf_name = self.configs["interface"][0]
         except KeyError:
@@ -1698,7 +1704,7 @@ class BadgerRoutinePage(QWidget):
         description = self.edit_descr.toPlainText()
 
         # General sanity checks
-        if self.generator_box.cb.currentIndex() == -1:
+        if self.env_box.algo_cb.currentIndex() == -1:
             logger.error("No generator selected.")
             raise BadgerRoutineError("no generator selected")
         if self.env_box.env_cb.currentIndex() == -1:
@@ -1706,9 +1712,13 @@ class BadgerRoutinePage(QWidget):
             raise BadgerRoutineError("no environment selected")
 
         # Generator
-        generator_name = self.generators[self.generator_box.cb.currentIndex()]
+        generator_name = self.generators[self.env_box.algo_cb.currentIndex()]
         env_name = self.envs[self.env_box.env_cb.currentIndex()]
-        generator_params = load_config(self.generator_box.edit.get_parameters_yaml())
+        generator_params = load_config(
+            self.env_box.edit_algo_params.get_parameters_yaml()
+        )
+        print("generator params")
+        print(generator_params)
         logger.debug(
             f"Generator selected: {generator_name}, params: {generator_params}"
         )
@@ -1737,7 +1747,7 @@ class BadgerRoutinePage(QWidget):
                         turbo_config["center_x"] = None
 
         # Environment
-        env_params = load_config(self.env_box.edit.get_parameters_yaml())
+        env_params = load_config(self.env_box.edit_env_params.get_parameters_yaml())
         logger.debug(f"Environment selected: {env_name}, params: {env_params}")
 
         # VOCS
