@@ -22,7 +22,14 @@ from xopt.generators import (
     get_generator_dynamic,
 )
 from xopt.utils import get_local_region
-from gest_api.vocs import GreaterThanConstraint, LessThanConstraint
+from gest_api.vocs import (
+    BaseObjective,
+    GreaterThanConstraint,
+    LessThanConstraint,
+    MaximizeObjective,
+    MinimizeObjective,
+)
+
 from pydantic import ValidationError
 
 from badger.gui.components.generator_cbox import BadgerAlgoBox
@@ -95,6 +102,18 @@ def extract_constraint_symbol_and_value(constraint):
         return "", 0
 
 
+def extract_objective_symbol(objective: BaseObjective) -> str:
+    """
+    Extract text from gest-api objective objects
+    """
+    if isinstance(objective, MinimizeObjective):
+        return "MINIMIZE"
+    if isinstance(objective, MaximizeObjective):
+        return "MAXIMIZE"
+    else:
+        raise ValueError(f"Unknown objective type: {objective}")
+
+
 class BadgerRoutinePage(QWidget):
     sig_updated = pyqtSignal(str, str)  # routine name, routine description
     sig_load_template = pyqtSignal(str)  # template path
@@ -112,7 +131,6 @@ class BadgerRoutinePage(QWidget):
         self.window_docs = BadgerDocsWindow(self, "")
         self.window_env_docs = BadgerDocsWindow(self, "", plugin_type="environment")
         self.vars_env = None  # needed for passing env vars to the var table
-        self.relative_to_curr = True
 
         # Limit variable ranges
         self.limit_option = {
@@ -145,10 +163,6 @@ class BadgerRoutinePage(QWidget):
         # remember user selection from lim_vrange_dialog gui
         # 2: not initialized, 1: apply to all, 0: apply to only visible
         self.lim_apply_to_vars = 2
-
-    def set_relative_to_curr(self, relative: bool = True):
-        self.relative_to_curr = relative
-        self.toggle_relative_to_curr()
 
     def init_ui(self):
         logger.info("Initializing UI for BadgerRoutinePage.")
@@ -284,6 +298,11 @@ class BadgerRoutinePage(QWidget):
         logger.info("Configuring logic for BadgerRoutinePage.")
         self.btn_descr_update.clicked.connect(self.update_description)
         self.env_box.load_template_button.clicked.connect(self.load_template_yaml)
+        self.env_box.template_cb.currentTextChanged.connect(
+            lambda: self.load_template_yaml(
+                template_path=self.env_box.template_cb.currentText()
+            )
+        )
         self.save_template_button.clicked.connect(self.save_template_yaml)
         self.env_box.algo_cb.currentIndexChanged.connect(self.select_generator)
         # self.generator_box.btn_docs.clicked.connect(self.open_generator_docs)
@@ -337,6 +356,9 @@ class BadgerRoutinePage(QWidget):
         if not template_path:
             return
 
+        if os.path.basename(template_path) == template_path:
+            template_path = os.path.join(self.template_dir, template_path)
+
         # Load template file
         try:
             with open(template_path, "r") as stream:
@@ -345,6 +367,9 @@ class BadgerRoutinePage(QWidget):
                 self.sig_load_template.emit(
                     f"Options loaded from template: {os.path.basename(template_path)}"
                 )
+
+                template_name = os.path.basename(template_path)
+                self.env_box.update_template_cb(template_name)
         except (FileNotFoundError, yaml.YAMLError) as e:
             print(f"Error loading template: {e}")
             return
@@ -453,12 +478,11 @@ class BadgerRoutinePage(QWidget):
         self.env_box.var_table.set_selected(vocs.variables)
         self.env_box.var_table.addtl_vars = additional_variables
 
-        flag_relative = relative_to_current
-        # self.relative_to_curr.setChecked(flag_relative)
-        self.toggle_relative_to_curr(flag_relative, refresh=False)
+        # self.env_box.relative_to_curr.isChecked().setChecked(flag_relative)
+        self.toggle_relative_to_curr(relative_to_current, refresh=False)
 
         if env_name:
-            if flag_relative:
+            if relative_to_current:
                 bounds = self.calc_auto_bounds()
                 self.env_box.var_table.set_bounds(bounds, signal=False)
             else:
@@ -486,7 +510,7 @@ class BadgerRoutinePage(QWidget):
             status[name] = False  # selected
             objectives.append(obj)
         for name, val in vocs.objectives.items():
-            rule = val
+            rule = extract_objective_symbol(val)
 
             idx = objectives_names_full.index(name)
             if idx == -1:
@@ -597,7 +621,7 @@ class BadgerRoutinePage(QWidget):
         template_dict = {
             "name": self.edit_save.text(),
             "description": str(self.edit_descr.toPlainText()),
-            "relative_to_current": self.relative_to_curr,
+            "relative_to_current": self.env_box.relative_to_curr.isChecked(),
             "generator": {
                 "name": generator_name,
             }
@@ -839,7 +863,7 @@ class BadgerRoutinePage(QWidget):
             status[name] = False  # selected
             objectives.append(obj)
         for name, val in routine.vocs.objectives.items():
-            rule = val
+            rule = extract_objective_symbol(val)
 
             idx = objectives_names_full.index(name)
             if idx == -1:
@@ -1113,7 +1137,7 @@ class BadgerRoutinePage(QWidget):
         with BlockSignalsContext(self.env_box.var_table):
             self.env_box.var_table.update_variables(vars_combine)
         # Auto apply the limited variable ranges if the option is set
-        if self.relative_to_curr:
+        if self.env_box.relative_to_curr.isChecked():
             self.set_vrange()
 
         # Needed for getting bounds on the fly
@@ -1219,7 +1243,7 @@ class BadgerRoutinePage(QWidget):
                     table.setItem(row, col, item)
                 break  # Stop after filling the first non-empty row
 
-        if record and self.relative_to_curr:
+        if record and self.env_box.relative_to_curr.isChecked():
             self.init_table_actions.append({"type": "add_curr"})
 
     def save_add_rand_config(self, add_rand_config):
@@ -1247,7 +1271,7 @@ class BadgerRoutinePage(QWidget):
         #        "Variable range is not valid!",
         #        "Auto mode disabled due to invalid variable range. Please fix it before enabling auto mode.",
         #    )
-        #    return self.relative_to_curr
+        #    return self.env_box.relative_to_curr.isChecked()
 
         n_point = add_rand_config["n_points"]
         fraction = add_rand_config["fraction"]
@@ -1287,7 +1311,7 @@ class BadgerRoutinePage(QWidget):
                 except IndexError:  # No more points to add
                     break
 
-        if record and self.relative_to_curr:
+        if record and self.env_box.relative_to_curr.isChecked():
             self.init_table_actions.append(
                 {
                     "type": "add_rand",
@@ -1309,6 +1333,7 @@ class BadgerRoutinePage(QWidget):
             self.rc_dialog = None
 
     def clear_init_table(self, reset_actions=True):
+        # MOVE TO ENV_CBOX
         logger.info(f"Clearing init table (reset_actions={reset_actions})")
         table = self.env_box.init_table
         for row in range(table.rowCount()):
@@ -1317,10 +1342,11 @@ class BadgerRoutinePage(QWidget):
                 if item:
                     item.setText("")  # Set the cell content to an empty string
 
-        if reset_actions and self.relative_to_curr:
+        if reset_actions and self.env_box.relative_to_curr.isChecked():
             self.init_table_actions = []  # reset the recorded actions
 
     def add_row_to_init_table(self):
+        # MOVE TO ENV_CBOX
         logger.info("Adding row to init table.")
         table = self.env_box.init_table
         row_position = table.rowCount()
@@ -1368,6 +1394,7 @@ class BadgerRoutinePage(QWidget):
         # dlg.exec()
 
     def limit_variable_ranges(self):
+        # MOVE TO ENV_CBOX
         if self.lim_apply_to_vars == 2:
             # Initialize the lim_apply_to_vars to 0 (set only visible vars)
             self.lim_apply_to_vars = 0
@@ -1382,6 +1409,7 @@ class BadgerRoutinePage(QWidget):
         dlg.exec()
 
     def set_vrange(self, set_all=True):
+        # MOVE TO ENV_CBOX
         # By default update all variables no matter if selected or not
         vname_selected = []
         vrange = {}
@@ -1457,6 +1485,8 @@ class BadgerRoutinePage(QWidget):
             self.ratio_var_ranges[vname] = copy.deepcopy(self.limit_option)
 
     def set_ind_vrange(self, vname, config):
+        print(f"set_ind_vrange: {vname}")
+        # MOVE TO ENV_CBOX
         logger.info(
             f"Setting individual variable range for {vname} with config: {config}"
         )
@@ -1506,6 +1536,7 @@ class BadgerRoutinePage(QWidget):
         self.ratio_var_ranges[vname] = copy.deepcopy(option)
 
     def save_limit_option(self, limit_option):
+        # MOVE TO ENV_CBOX
         logger.info(f"Saving limit option: {limit_option}")
         self.limit_option = limit_option
 
@@ -1528,12 +1559,13 @@ class BadgerRoutinePage(QWidget):
         return 0
 
     def update_init_table(self, force=False):
+        # MOVE TO ENV_CBOX
         logger.info(f"Updating init table (force={force})")
         selected = self.env_box.var_table.selected
         variable_names = [v for v in selected if selected[v]]
         update_init_data_table(self.env_box.init_table, variable_names)
 
-        if (not force) and (not self.relative_to_curr):
+        if (not force) and (not self.env_box.relative_to_curr.isChecked()):
             return
 
         # Auto populate the initial table based on recorded actions
@@ -1547,6 +1579,7 @@ class BadgerRoutinePage(QWidget):
         self._fill_init_table()
 
     def calc_auto_bounds(self):
+        # MOVE TO ENV_CBOX
         logger.info("Calculating auto bounds for selected variables.")
         vname_selected = []
         vrange = {}
@@ -1600,13 +1633,16 @@ class BadgerRoutinePage(QWidget):
         return vrange
 
     def toggle_relative_to_curr(self, checked, refresh=True):
+        # MOVE TO ENV_CBOX
         logger.info(f"Toggling relative_to_curr: checked={checked}, refresh={refresh}")
         if checked:
             try:
                 _ = self.env_box.compose_vocs()
             except Exception:
                 logger.warning("Variable range is not valid, switching to manual mode.")
-                QTimer.singleShot(0, lambda: self.relative_to_curr)
+                QTimer.singleShot(
+                    0, lambda: self.env_box.relative_to_curr.isChecked()
+                )  # ??
                 QMessageBox.warning(
                     self,
                     "Variable range is not valid!",
@@ -1623,7 +1659,7 @@ class BadgerRoutinePage(QWidget):
                 self.clear_init_table(reset_actions=False)
                 self.try_populate_init_table()
 
-            self.env_box.var_table.lock_bounds()
+            # self.env_box.var_table.lock_bounds()
             self.env_box.init_table.set_uneditable()
         else:
             logger.info("Switching to manual variable range mode.")
@@ -1633,6 +1669,7 @@ class BadgerRoutinePage(QWidget):
             self.env_box.init_table.set_editable()
 
     def refresh_variables(self):
+        # MOVE TO ENV_CBOX
         logger.info("Refreshing variables and bounds.")
         variables = self.env_box.var_table.export_variables()
         bounds = self.calc_auto_bounds()
@@ -1652,16 +1689,23 @@ class BadgerRoutinePage(QWidget):
         self.try_populate_init_table()
 
     def try_populate_init_table(self):
+        # MOVE TO ENV_CBOX
         logger.info("Trying to auto-populate initial table.")
-        if self.relative_to_curr and self.env_box.var_table.selected:
+        if (
+            self.env_box.relative_to_curr.isChecked()
+            and self.env_box.var_table.selected
+        ):
             self.update_init_table()
 
     def handle_pv_added(self):
+        # MOVE TO ENV_CBOX
         logger.info("Handling PV added event.")
-        if self.relative_to_curr:
+        if self.env_box.relative_to_curr.isChecked():
             self.set_vrange()
 
     def handle_var_config(self, vname):
+        print(f"handle_var_config: {vname}")
+        # MOVE TO ENV_CBOX
         env = self.create_env()
         curr = env.get_variables([vname])[vname]
 
@@ -1788,7 +1832,7 @@ class BadgerRoutinePage(QWidget):
             script = None
 
         # Relative to current params
-        if self.relative_to_curr:
+        if self.env_box.relative_to_curr.isChecked():
             relative_to_current = True
             vrange_limit_options = self.ratio_var_ranges
             initial_point_actions = self.init_table_actions

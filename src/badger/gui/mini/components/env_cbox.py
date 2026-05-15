@@ -1,13 +1,15 @@
+from pathlib import Path
 from typing import Any
 
 from PyQt5.QtWidgets import (
+    QComboBox,
+    QFrame,
     QVBoxLayout,
     QHBoxLayout,
     QPushButton,
     QWidget,
     QLineEdit,
     QTreeWidget,
-    QSizePolicy,
 )
 from PyQt5.QtWidgets import (
     QCheckBox,
@@ -15,6 +17,7 @@ from PyQt5.QtWidgets import (
     QLabel,
 )
 from PyQt5.QtCore import QRegExp, pyqtSignal
+from badger.settings import init_settings
 from pydantic_core import ValidationError
 
 from badger.errors import BadgerRoutineError
@@ -130,28 +133,41 @@ class BadgerEnvBox(QWidget):
         template_widget = QWidget()
         hbox_template = QHBoxLayout(template_widget)
         hbox_template.setContentsMargins(0, 0, 0, 0)
-        template_lbl = QLabel("Template")  # label
+        template_lbl = QLabel("Load Template")  # label
         template_lbl.setFixedWidth(LABEL_WIDTH)
-        self.template_cb = template_cb = NoHoverFocusComboBox()  # comboBox
+        self.template_cb = QComboBox()
         self.template_cb.setFixedWidth(LABEL_WIDTH * 2)
-        template_cb.setItemDelegate(QStyledItemDelegate())
-        # template_cb.addItems(self.envs)
-        template_cb.setCurrentIndex(-1)
-        template_cb.installEventFilter(MouseWheelWidgetAdjustmentGuard(template_cb))
-
-        self.load_template_button = QPushButton("Select Template")
-        # btn_select_template.setFixedSize(406, 24)
-        self.load_template_button.setFixedHeight(24)
-        self.load_template_button.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Fixed
+        self.template_cb.setItemDelegate(QStyledItemDelegate())
+        self.template_cb.setCurrentIndex(-1)
+        self.template_cb.installEventFilter(
+            MouseWheelWidgetAdjustmentGuard(self.template_cb)
         )
 
-        # hbox_template.addWidget(template_lbl)
-        # hbox_template.addWidget(template_cb)
+        config_singleton = init_settings()
+        template_dir = Path(config_singleton.read_value("BADGER_TEMPLATE_ROOT"))
+        yaml_files = list(template_dir.glob("*.y*ml"))
+        self.template_cb.addItems([file.name for file in sorted(yaml_files)])
+        self.template_cb.setCurrentIndex(-1)
+
+        self.load_template_button = QPushButton("From file")
+        self.load_template_button.setFixedSize(96, 24)
+        self.load_template_button.setFixedHeight(24)
+        # self.load_template_button.setSizePolicy(
+        #    QSizePolicy.Expanding, QSizePolicy.Fixed
+        # )
+
+        hbox_template.addWidget(template_lbl)
+        hbox_template.addWidget(self.template_cb)
         hbox_template.addWidget(self.load_template_button)
-        # hbox_template.addStretch()
+        hbox_template.addStretch()
 
         vbox.addWidget(template_widget)
+
+        # Add a horizontal separator
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)  # Horizontal line
+        separator.setFrameShadow(QFrame.Sunken)  # Sunken style
+        vbox.addWidget(separator)
 
         # Environment
         env = QWidget()
@@ -218,6 +234,11 @@ class BadgerEnvBox(QWidget):
         vbox.addWidget(algo_widget)
         vbox.addWidget(self.edit_algo_params)
 
+        self.relative_to_curr = QCheckBox("Automatic")
+        self.relative_to_curr.setChecked(True)
+        self.relative_to_curr.hide()
+        vbox.addWidget(self.relative_to_curr)
+
         # Variables
         var_panel_origin = QWidget()
 
@@ -260,7 +281,7 @@ class BadgerEnvBox(QWidget):
 
         # var table
         self.var_table = VariableTable()
-        self.var_table.lock_bounds()
+        # self.var_table.lock_bounds()
         self.var_table.setMinimumHeight(200)
         self.var_table.verticalHeader().setVisible(False)
         vbox_var_edit.addWidget(self.var_table)
@@ -451,10 +472,21 @@ class BadgerEnvBox(QWidget):
     def filter_con(self):
         self.con_table.update_keyword(self.edit_con.text())
 
-    def _fit_content(self, list):
-        height = list.sizeHintForRow(0) * list.count() + 2 * list.frameWidth() + 4
-        height = max(28, min(height, 192))
-        list.setFixedHeight(height)
+    def update_template_cb(self, template_name):
+        """
+        Change the displayed template name without emitting signals to
+        reload
+        """
+        template_cb = self.template_cb
+        if template_cb is not None:
+            index = template_cb.findText(template_name)
+            template_cb.blockSignals(True)
+            if index >= 0:
+                template_cb.setCurrentIndex(index)
+            else:
+                template_cb.addItem(template_name)
+                template_cb.setCurrentIndex(template_cb.count() - 1)
+            template_cb.blockSignals(False)
 
     def compose_vocs(self) -> tuple[VOCS, list[str]]:
         # Compose the VOCS settings
