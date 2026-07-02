@@ -519,6 +519,30 @@ class BadgerHomePage(QWidget):
         self.routine_editor.env_box.var_table.refresh_current_values(
             vocs.variable_names, list(solution[vocs.variable_names].to_numpy()[0])
         )
+        self._synch_env_variables(solution)
+
+    def _synch_env_variables(self, solution: DataFrame):
+        """
+        Check whether the environment from RoutinePage is simulating variable values
+        using a '_variables' dictionary. Checks for _variables attr in env class, and
+        if found updates the env instance used by the GUI subprocess to match the
+        routine subprocess env.
+        """
+        if hasattr(self.routine_editor, "env") and self.routine_editor.env is not None:
+            env = self.routine_editor.env
+
+            if hasattr(env, "_variables"):
+                _variables = env._variables
+                vocs = self.current_routine.vocs
+
+                _vars = dict(
+                    zip(
+                        vocs.variable_names,
+                        list(solution[vocs.variable_names].to_numpy()[0]),
+                    )
+                )
+                for name, val in _vars.items():
+                    _variables[name] = val
 
     def delete_run(self):
         logger.info("Deleting run.")
