@@ -605,6 +605,8 @@ class BadgerEnvBox(QWidget):
         self.check_only_obj.stateChanged.connect(self.toggle_obj_show_mode)
         self.edit_con.textChanged.connect(self.filter_con)
         self.check_only_con.stateChanged.connect(self.toggle_con_show_mode)
+        self.edit_sta.textChanged.connect(self.filter_sta)
+        self.check_only_sta.stateChanged.connect(self.toggle_sta_show_mode)
         self.btn_env_params.toggled.connect(self.toggle_env_params)
         self.btn_algo_parans.toggled.connect(self.toggle_algorithm_params)
         self.refresh_current_btn.clicked.connect(self.var_table.refresh_current_values)
