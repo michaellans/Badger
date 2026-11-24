@@ -808,8 +808,12 @@ class BadgerPydanticEditor(QTreeWidget):
 
     def set_params_from_dict(self, params: dict[str, Any]) -> None:
         self.clear()
-        field_definitions: dict[str, tuple[type, FieldInfo]] = {
-            k: (type(v), Field()) for k, v in params.items()
+        field_definitions: dict[str, tuple[Any, FieldInfo]] = {
+            k: (
+                list[type(v[0]) if v else str] if isinstance(v, list) else type(v),
+                Field(),
+            )
+            for k, v in params.items()
         }
         if field_definitions == {}:
             logger.warning("No fields found in params dictionary")
